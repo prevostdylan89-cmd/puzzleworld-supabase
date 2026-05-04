@@ -13,7 +13,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    if (!email || !password) return;
     setError(null);
     setLoading(true);
     try {
@@ -60,26 +61,31 @@ export default function LoginPage() {
           </div>
 
           {/* Email/Password */}
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-3">
             <Input
               type="email"
               placeholder="Email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              required
+              onKeyDown={e => e.key === 'Enter' && handleSubmit(e)}
             />
             <Input
               type="password"
               placeholder="Mot de passe"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              required
+              onKeyDown={e => e.key === 'Enter' && handleSubmit(e)}
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full bg-purple-700 hover:bg-purple-800" disabled={loading}>
+            <Button
+              type="button"
+              className="w-full bg-purple-700 hover:bg-purple-800"
+              disabled={loading}
+              onClick={handleSubmit}
+            >
               {loading ? 'Chargement...' : mode === 'login' ? 'Se connecter' : "S'inscrire"}
             </Button>
-          </form>
+          </div>
 
           <p className="text-center text-sm text-slate-500">
             {mode === 'login' ? (
