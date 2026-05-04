@@ -51,11 +51,17 @@ export default function DashboardRainforest() {
       const response = await fetch(
         `https://api.rainforestapi.com/account?api_key=${key}`
       );
-      const data = await response.json();
+      let data = {};
+      try { data = await response.json(); } catch(e) {}
 
       if (data.account_info) {
         setCredits(data.account_info);
         setLastChecked(new Date());
+      } else if (response.status === 402) {
+        // Crédits épuisés - clé valide mais quota dépassé
+        setCredits({ credits_remaining: 0, credits_used: 0, credits_quota: 0, plan: 'Épuisé' });
+        setLastChecked(new Date());
+        toast.error('⚠️ Crédits épuisés sur ce compte Rainforest');
       } else if (data.request_info?.success === false) {
         toast.error('Clé API invalide ou expirée');
         setCredits(null);
@@ -81,8 +87,10 @@ export default function DashboardRainforest() {
       );
       const data = await response.json();
 
-      if (!data.account_info) {
-        toast.error('Cette clé API est invalide');
+      // 402 = crédits épuisés mais clé valide, on accepte quand même
+      // Seulement refuser si c'est une vraie erreur d'auth (401)
+      if (response.status === 401 || (response.status !== 200 && response.status !== 402)) {
+        toast.error('Cette clé API est invalide ou non reconnue');
         setSavingKey(false);
         return;
       }
