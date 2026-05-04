@@ -89,9 +89,8 @@ export default function EditProfileDialog({ user, onUpdate }) {
       });
       
       // Update UserProfile entity
-      const userProfiles = await base44.entities.UserProfile.filter({
-        email: currentUser.email
-      });
+      const userProfiles = await base44.entities.UserProfile.filter({ created_by: currentUser.email
+       });
       
       if (userProfiles.length > 0) {
         await base44.entities.UserProfile.update(userProfiles[0].id, {

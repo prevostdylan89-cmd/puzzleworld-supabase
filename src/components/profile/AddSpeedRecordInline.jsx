@@ -39,7 +39,7 @@ export default function AddSpeedRecordInline({ open, onClose, puzzle }) {
         puzzle_name: puzzle.puzzle_name,
         puzzle_brand: puzzle.puzzle_brand || '',
         puzzle_pieces: puzzle.puzzle_pieces,
-        image_url: puzzle.image_url || puzzle.progress_photo || '',
+        image: puzzle.image_url || puzzle.progress_photo || '',
         category_tag: puzzle.category_tag || '',
         hours: h,
         minutes: m,

@@ -286,7 +286,7 @@ export default function DiscoverySection({ globalPuzzles }) {
       puzzle_brand: puzzle.brand || '',
       puzzle_pieces: puzzle.piece_count || 0,
       puzzle_reference: puzzle.asin || puzzle.id,
-      image_url: puzzle.image_hd || '',
+      image: puzzle.image_hd || '',
       status
     });
     const labels = { wishlist: 'wishlist', inbox: 'collection', done: 'terminés' };
@@ -313,7 +313,7 @@ export default function DiscoverySection({ globalPuzzles }) {
           puzzle_brand: puzzle.brand || '',
           puzzle_pieces: puzzle.piece_count || 0,
           puzzle_reference: puzzle.asin || puzzle.id,
-          image_url: puzzle.image_hd || '',
+          image: puzzle.image_hd || '',
           status
         });
         added++;

@@ -97,7 +97,7 @@ export default function WishlistSection({ user }) {
           puzzle_name: p.puzzle_name,
           puzzle_brand: p.puzzle_brand,
           puzzle_pieces: p.puzzle_pieces,
-          image_url: p.image_url,
+          image: p.image_url,
           notes: p.notes || '',
           priority: 'medium',
           created_date: p.created_date,
@@ -154,7 +154,7 @@ export default function WishlistSection({ user }) {
           puzzle_name: item.puzzle_name,
           puzzle_brand: item.puzzle_brand || '',
           puzzle_pieces: item.puzzle_pieces || 0,
-          image_url: item.image_url || '',
+          image: item.image_url || '',
           status: newStatus,
         });
         await base44.entities.Wishlist.delete(item.id);
@@ -242,7 +242,7 @@ export default function WishlistSection({ user }) {
       } else {
         await base44.entities.UserPuzzle.create({
           puzzle_name: item.puzzle_name, puzzle_brand: item.puzzle_brand || '',
-          puzzle_pieces: item.puzzle_pieces || 0, image_url: item.image_url || '', status: newStatus,
+          puzzle_pieces: item.puzzle_pieces || 0, image: item.image_url || '', status: newStatus,
         });
         await base44.entities.Wishlist.delete(id);
       }
@@ -342,7 +342,7 @@ export default function WishlistSection({ user }) {
                           🛒 Amazon
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSpeedRecordPuzzle({ id: item.id, puzzle_name: item.puzzle_name, puzzle_brand: item.puzzle_brand, puzzle_pieces: item.puzzle_pieces, image_url: item.image_url }); }} className="text-yellow-400 hover:bg-white/10 cursor-pointer">
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSpeedRecordPuzzle({ id: item.id, puzzle_name: item.puzzle_name, puzzle_brand: item.puzzle_brand, puzzle_pieces: item.puzzle_pieces, image: item.image_url }); }} className="text-yellow-400 hover:bg-white/10 cursor-pointer">
                         <Zap className="w-3 h-3 mr-1" /> Ajouter un record ⚡
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setIsMultiSelect(true); setSelectedIds([item.id]); }} className="text-blue-400 hover:bg-white/10 cursor-pointer">

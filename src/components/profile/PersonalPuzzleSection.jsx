@@ -89,7 +89,7 @@ function PersonalPuzzleCard({ puzzle, index, onUpdate }) {
     }
   };
 
-  const speedPuzzle = { id: puzzle.id, puzzle_name: puzzle.name, puzzle_brand: '', puzzle_pieces: puzzle.piece_count, image_url: puzzle.image_url };
+  const speedPuzzle = { id: puzzle.id, puzzle_name: puzzle.name, puzzle_brand: '', puzzle_pieces: puzzle.piece_count, image: puzzle.image_url };
 
   return (
     <>
@@ -174,7 +174,7 @@ function AddPersonalPuzzleModal({ onClose, onSaved }) {
       await base44.entities.PersonalPuzzle.create({
         name: name.trim(),
         piece_count: pieceCount ? parseInt(pieceCount) : null,
-        image_url: imageUrl || null,
+        image: imageUrl || null,
       });
       toast.success('Puzzle personnel ajouté ! 🧩');
       onSaved();

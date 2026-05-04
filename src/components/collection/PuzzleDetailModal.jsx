@@ -178,7 +178,7 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
           puzzle_name: puzzle.title,
           puzzle_brand: puzzle.brand,
           puzzle_pieces: puzzle.piece_count,
-          image_url: puzzle.image_hd,
+          image: puzzle.image_hd,
           priority: 'medium'
         });
         setIsWishlisted(true);
@@ -201,7 +201,7 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
         puzzle_name: puzzle.title,
         puzzle_brand: puzzle.brand,
         puzzle_pieces: puzzle.piece_count,
-        image_url: puzzle.image_hd,
+        image: puzzle.image_hd,
         puzzle_reference: puzzle.asin || puzzle.ean,
         status,
         end_date: status === 'done' ? new Date().toISOString().split('T')[0] : undefined,

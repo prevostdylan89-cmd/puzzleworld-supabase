@@ -121,14 +121,14 @@ function LayoutContent({ children, currentPageName }) {
   useEffect(() => {
     if (!user) return;
     // Initial fetch
-    base44.entities.DirectMessage.filter({ receiver_email: user.email, is_read: false })
+    base44.entities.DirectMessage.filter({ recipient: user.email, is_read: false })
       .then(msgs => setUnreadMessagesCount(new Set(msgs.map(m => m.conversation_id)).size))
       .catch(() => {});
     // Real-time subscription for updates
     const unsub = base44.entities.DirectMessage.subscribe((event) => {
       // Only re-fetch on create/update events to avoid unnecessary calls
       if (event.type === 'create' || event.type === 'update') {
-        base44.entities.DirectMessage.filter({ receiver_email: user.email, is_read: false })
+        base44.entities.DirectMessage.filter({ recipient: user.email, is_read: false })
           .then(msgs => setUnreadMessagesCount(new Set(msgs.map(m => m.conversation_id)).size))
           .catch(() => {});
       }
@@ -569,7 +569,7 @@ function LayoutContent({ children, currentPageName }) {
             >
               {(() => {
                 const pageSetting = pageSettings.find(s => s.page_name === currentPageName);
-                if (pageSetting && pageSetting.is_active === false) {
+                if (pageSetting && pageSetting.is_visible === false) {
                   return <MaintenancePage message={pageSetting.maintenance_message} />;
                 }
                 return children;

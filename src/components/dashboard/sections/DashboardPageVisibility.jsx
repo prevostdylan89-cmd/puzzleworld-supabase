@@ -38,7 +38,7 @@ export default function DashboardPageVisibility() {
       // Merge with default pages
       const merged = MANAGEABLE_PAGES.map(page => {
         const found = existing.find(s => s.page_name === page.page_name);
-        return found || { ...page, is_active: true, maintenance_message: 'Cette page est temporairement en maintenance. Revenez bientôt !' };
+        return found || { ...page, is_visible: true, maintenance_message: 'Cette page est temporairement en maintenance. Revenez bientôt !' };
       });
       setSettings(merged);
     } catch (error) {
@@ -56,18 +56,18 @@ export default function DashboardPageVisibility() {
       const setting = settings.find(s => s.page_name === pageName);
 
       if (existing.length > 0) {
-        await base44.entities.PageSettings.update(existing[0].id, { is_active: !currentValue });
+        await base44.entities.PageSettings.update(existing[0].id, { is_visible: !currentValue });
       } else {
         await base44.entities.PageSettings.create({
           page_name: pageName,
           label: pageInfo?.label || pageName,
-          is_active: !currentValue,
+          is_visible: !currentValue,
           maintenance_message: setting?.maintenance_message || 'Cette page est temporairement en maintenance. Revenez bientôt !',
         });
       }
 
       setSettings(prev => prev.map(s =>
-        s.page_name === pageName ? { ...s, is_active: !currentValue } : s
+        s.page_name === pageName ? { ...s, is_visible: !currentValue } : s
       ));
       toast.success(`Page "${pageInfo?.label}" ${!currentValue ? 'activée' : 'mise en maintenance'}`);
     } catch (error) {
@@ -96,7 +96,7 @@ export default function DashboardPageVisibility() {
         await base44.entities.PageSettings.create({
           page_name: pageName,
           label: pageInfo?.label || pageName,
-          is_active: setting?.is_active ?? true,
+          is_visible: setting?.is_visible ?? true,
           maintenance_message: setting?.maintenance_message,
         });
       }
@@ -135,7 +135,7 @@ export default function DashboardPageVisibility() {
 
       <div className="space-y-3">
         {settings.map((setting) => {
-          const isActive = setting.is_active !== false;
+          const isActive = setting.is_visible !== false;
           const isSavingToggle = saving[setting.page_name];
           const isSavingMsg = saving[`msg_${setting.page_name}`];
 

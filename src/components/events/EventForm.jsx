@@ -163,7 +163,7 @@ export default function EventForm({ event, onClose, onSave }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="p-6 space-y-6">
           {/* Image Upload */}
           <div>
             <label className="text-sm text-white/70 mb-2 block">Image de l'événement *</label>
@@ -326,7 +326,7 @@ export default function EventForm({ event, onClose, onSave }) {
               )}
             </Button>
           </div>
-        </form>
+        </div>
       </motion.div>
     </motion.div>
   );

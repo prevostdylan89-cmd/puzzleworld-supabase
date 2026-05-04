@@ -62,12 +62,12 @@ export default function BadgesModal({ open, onClose, user }) {
           await base44.entities.UserBadge.create({
             badge_id: currentBadge.id,
             badge_name: currentBadge.name,
-            is_active: true
+            is_visible: true
           });
           
           // Deactivate other badges
           for (const ub of userUnlocked) {
-            await base44.entities.UserBadge.update(ub.id, { is_active: false });
+            await base44.entities.UserBadge.update(ub.id, { is_visible: false });
           }
         }
 

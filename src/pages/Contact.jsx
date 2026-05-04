@@ -96,7 +96,7 @@ export default function Contact() {
           transition={{ delay: 0.2 }}
           className="bg-white/5 border border-white/10 rounded-xl p-8"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-6">
             <div>
               <Label htmlFor="name" className="text-white mb-2 block">
                 Nom complet
@@ -179,7 +179,7 @@ export default function Contact() {
                 </>
               )}
             </Button>
-          </form>
+          </div>
         </motion.div>
 
         <motion.div

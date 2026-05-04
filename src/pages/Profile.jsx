@@ -136,8 +136,8 @@ export default function Profile() {
         base44.entities.Achievement.filter({ created_by: currentUser.email }),
         base44.entities.Wishlist.filter({ created_by: currentUser.email }),
         base44.entities.UserPuzzle.filter({ created_by: currentUser.email, status: 'wishlist' }),
-        base44.entities.Follow.filter({ following_email: currentUser.email }),
-        base44.entities.Follow.filter({ follower_email: currentUser.email }),
+        base44.entities.Follow.filter({ following: currentUser.email }),
+        base44.entities.Follow.filter({ created_by: currentUser.email }),
         base44.entities.UserPuzzle.filter({ created_by: currentUser.email })
       ]);
       // Dedup wishlist by puzzle_name
@@ -167,7 +167,7 @@ export default function Profile() {
       // Load current badge from the database
       const userBadges = await base44.entities.UserBadge.filter({
         created_by: currentUser.email,
-        is_active: true,
+        is_visible: true,
       });
       
       if (userBadges.length > 0) {

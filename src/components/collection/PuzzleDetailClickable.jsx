@@ -141,7 +141,7 @@ export default function PuzzleDetailClickable({ puzzleReference, onClose }) {
           puzzle_brand: puzzle.brand || '',
           puzzle_pieces: puzzle.piece_count || 0,
           puzzle_reference: puzzle.asin,
-          image_url: puzzle.image_hd || '',
+          image: puzzle.image_hd || '',
           status: 'wishlist'
         });
         await base44.entities.PuzzleCatalog.update(puzzle.id, {

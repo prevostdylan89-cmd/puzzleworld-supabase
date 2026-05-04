@@ -60,8 +60,8 @@ export default function DeleteAccountSection() {
       }
 
       // Delete follows
-      const userFollows = await base44.entities.Follow.filter({ follower_email: userEmail });
-      const userFollowing = await base44.entities.Follow.filter({ following_email: userEmail });
+      const userFollows = await base44.entities.Follow.filter({ created_by: userEmail });
+      const userFollowing = await base44.entities.Follow.filter({ following: userEmail });
       for (const follow of [...userFollows, ...userFollowing]) {
         await base44.entities.Follow.delete(follow.id);
       }

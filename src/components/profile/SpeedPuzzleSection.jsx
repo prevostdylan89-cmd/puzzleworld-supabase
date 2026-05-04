@@ -58,7 +58,7 @@ function AddRecordModal({ open, onClose, onAdded, prefillPuzzle }) {
       puzzle_name: selectedPuzzle.puzzle_name,
       puzzle_brand: selectedPuzzle.puzzle_brand || '',
       puzzle_pieces: selectedPuzzle.puzzle_pieces,
-      image_url: selectedPuzzle.image_url || '',
+      image: selectedPuzzle.image_url || '',
       category_tag: selectedPuzzle.category_tag || '',
       hours: h,
       minutes: m,
@@ -238,7 +238,7 @@ function PuzzleRecordCard({ puzzleName, puzzleBrand, puzzlePieces, imageUrl, rec
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       // Update all records for this puzzle
-      await Promise.all(records.map(r => base44.entities.SpeedRecord.update(r.id, { image_url: file_url })));
+      await Promise.all(records.map(r => base44.entities.SpeedRecord.update(r.id, { image: file_url })));
       setLocalImage(file_url);
       toast.success('Photo mise à jour ! 📸');
       if (onImageUpdated) onImageUpdated();
@@ -284,7 +284,7 @@ function PuzzleRecordCard({ puzzleName, puzzleBrand, puzzlePieces, imageUrl, rec
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onAddRecord({ puzzle_name: puzzleName, puzzle_brand: puzzleBrand, puzzle_pieces: puzzlePieces, image_url: localImage, id: best.puzzle_id })}
+            onClick={() => onAddRecord({ puzzle_name: puzzleName, puzzle_brand: puzzleBrand, puzzle_pieces: puzzlePieces, image: localImage, id: best.puzzle_id })}
             className="w-8 h-8 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 flex items-center justify-center text-orange-400 transition-all"
           >
             <Plus className="w-4 h-4" />

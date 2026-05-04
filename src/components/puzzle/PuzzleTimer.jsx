@@ -47,7 +47,7 @@ export default function PuzzleTimer({ puzzleId, puzzleName, user }) {
         created_by: user.email
       });
       
-      const active = allTimers.find(t => t.is_active);
+      const active = allTimers.find(t => t.is_visible);
       if (active) {
         setActiveTimer(active);
         setIsRunning(!active.paused_at);
@@ -70,7 +70,7 @@ export default function PuzzleTimer({ puzzleId, puzzleName, user }) {
         puzzle_id: puzzleId,
         puzzle_name: puzzleName,
         start_time: new Date().toISOString(),
-        is_active: true,
+        is_visible: true,
         accumulated_seconds: 0
       });
       
@@ -128,7 +128,7 @@ export default function PuzzleTimer({ puzzleId, puzzleName, user }) {
       await base44.entities.PuzzleTimer.update(activeTimer.id, {
         end_time: new Date().toISOString(),
         total_seconds: currentTime,
-        is_active: false
+        is_visible: false
       });
       
       setActiveTimer(null);
@@ -150,7 +150,7 @@ export default function PuzzleTimer({ puzzleId, puzzleName, user }) {
   };
 
   const bestTime = timers
-    .filter(t => t.total_seconds && !t.is_active)
+    .filter(t => t.total_seconds && !t.is_visible)
     .sort((a, b) => a.total_seconds - b.total_seconds)[0];
 
   if (!user) {
@@ -189,11 +189,11 @@ export default function PuzzleTimer({ puzzleId, puzzleName, user }) {
                 <DialogTitle className="text-white">Historique des tentatives</DialogTitle>
               </DialogHeader>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {timers.filter(t => !t.is_active && t.total_seconds).map((timer, index) => (
+                {timers.filter(t => !t.is_visible && t.total_seconds).map((timer, index) => (
                   <div key={timer.id} className="bg-white/5 border border-white/10 rounded-lg p-3">
                     <div className="flex items-center justify-between">
                       <span className="text-white/60 text-sm">
-                        Tentative #{timers.filter(t => !t.is_active && t.total_seconds).length - index}
+                        Tentative #{timers.filter(t => !t.is_visible && t.total_seconds).length - index}
                       </span>
                       <span className="text-orange-400 font-mono font-bold">
                         {formatTime(timer.total_seconds)}

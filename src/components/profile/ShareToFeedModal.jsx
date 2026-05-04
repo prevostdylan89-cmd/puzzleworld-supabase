@@ -24,7 +24,7 @@ export default function ShareToFeedModal({ open, onClose, puzzle, photoUrl }) {
       const user = await base44.auth.me();
       await base44.entities.Post.create({
         content: content.trim(),
-        image_url: photoUrl || '',
+        image: photoUrl || '',
         puzzle_name: puzzle.puzzle_name,
         puzzle_brand: puzzle.puzzle_brand || '',
         puzzle_pieces: puzzle.puzzle_pieces,

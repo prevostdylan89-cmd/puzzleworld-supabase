@@ -95,7 +95,7 @@ export default function PuzzleEditModal({ open, onClose, puzzle, onUpdate }) {
           <DialogTitle className="text-white">{isCreating ? 'Ajouter un puzzle' : 'Modifier le puzzle'}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           <div>
             <label className="text-white/70 text-sm mb-2 block">Titre</label>
             <Input
@@ -244,7 +244,7 @@ export default function PuzzleEditModal({ open, onClose, puzzle, onUpdate }) {
               )}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

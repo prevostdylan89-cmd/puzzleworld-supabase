@@ -69,7 +69,7 @@ export default function Social() {
 
       if (activeTab === 'following') {
         if (!user) { setIsLoading(false); return; }
-        const follows = await base44.entities.Follow.filter({ follower_email: user.email });
+        const follows = await base44.entities.Follow.filter({ created_by: user.email });
         const followingEmails = follows.map(f => f.following_email);
         if (followingEmails.length === 0) {
           setPosts([]);

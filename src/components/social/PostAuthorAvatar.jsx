@@ -17,7 +17,7 @@ export default function PostAuthorAvatar({ authorEmail, authorName, authorInitia
           return;
         }
         // Fallback: try by email
-        profiles = await base44.entities.UserProfile.filter({ email: authorEmail });
+        profiles = await base44.entities.UserProfile.filter({ created_by: authorEmail  });
         if (profiles.length > 0 && profiles[0].profile_photo) {
           setProfilePhoto(profiles[0].profile_photo);
         }

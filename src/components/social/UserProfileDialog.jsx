@@ -39,9 +39,9 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
 
       if (loggedUser) {
         const [followCheck, sentCheck, receivedCheck] = await Promise.all([
-          base44.entities.Follow.filter({ follower_email: loggedUser.email, following_email: userEmail }),
-          base44.entities.Friendship.filter({ requester_email: loggedUser.email, addressee_email: userEmail }),
-          base44.entities.Friendship.filter({ requester_email: userEmail, addressee_email: loggedUser.email }),
+          base44.entities.Follow.filter({ created_by: loggedUser.email, following: userEmail }),
+          base44.entities.Friendship.filter({ created_by: loggedUser.email, friend_email: userEmail }),
+          base44.entities.Friendship.filter({ created_by: userEmail, friend_email: loggedUser.email }),
         ]);
         setIsFollowing(followCheck.length > 0);
         if (sentCheck.length > 0) {
@@ -64,7 +64,7 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
     try {
       await base44.entities.Friendship.create({
         requester_email: currentUser.email,
-        addressee_email: userEmail,
+        friend_email: userEmail,
         status: 'pending',
       });
       setFriendStatus('pending');
@@ -82,15 +82,14 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
     toast.success(isFollowing ? t('unfollowed') : t('followedUser'));
     try {
       if (prev) {
-        const follows = await base44.entities.Follow.filter({
-          follower_email: currentUser.email,
-          following_email: userEmail,
+        const follows = await base44.entities.Follow.filter({ created_by: currentUser.email,
+          following: userEmail,
         });
         if (follows.length > 0) await base44.entities.Follow.delete(follows[0].id);
       } else {
         await base44.entities.Follow.create({
-          follower_email: currentUser.email,
-          following_email: userEmail,
+          created_by: currentUser.email,
+          following: userEmail,
         });
       }
     } catch {

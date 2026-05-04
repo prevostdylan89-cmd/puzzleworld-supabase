@@ -90,7 +90,7 @@ export default function BugReportModal({ open, onClose }) {
                 <p className="text-white/50 text-sm mt-1">Nous allons examiner le problème.</p>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-3">
                 <div>
                   <label className="text-xs text-white/50 mb-1 block">Type</label>
                   <div className="flex gap-2 flex-wrap">
@@ -151,7 +151,7 @@ export default function BugReportModal({ open, onClose }) {
                     <><Send className="w-4 h-4 mr-2" /> Envoyer le signalement</>
                   )}
                 </Button>
-              </form>
+              </div>
             )}
           </motion.div>
         </>

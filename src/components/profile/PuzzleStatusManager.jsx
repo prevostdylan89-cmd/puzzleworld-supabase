@@ -316,7 +316,7 @@ function AddPuzzleDialog({ onAdd, defaultStatus }) {
     puzzle_brand: '',
     puzzle_pieces: '',
     puzzle_reference: '',
-    image_url: '',
+    image: '',
     status: defaultStatus
   });
 
@@ -332,7 +332,7 @@ function AddPuzzleDialog({ onAdd, defaultStatus }) {
       
       toast.success('Puzzle ajouté');
       setOpen(false);
-      setFormData({ puzzle_name: '', puzzle_brand: '', puzzle_pieces: '', puzzle_reference: '', image_url: '', status: defaultStatus });
+      setFormData({ puzzle_name: '', puzzle_brand: '', puzzle_pieces: '', puzzle_reference: '', image: '', status: defaultStatus });
       onAdd();
     } catch (error) {
       console.error('Error adding puzzle:', error);
@@ -354,7 +354,7 @@ function AddPuzzleDialog({ onAdd, defaultStatus }) {
         <DialogHeader>
           <DialogTitle className="text-white">Ajouter un puzzle</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           <Input
             placeholder="Nom du puzzle"
             value={formData.puzzle_name}
@@ -385,7 +385,7 @@ function AddPuzzleDialog({ onAdd, defaultStatus }) {
           <Input
             placeholder="URL de l'image"
             value={formData.image_url}
-            onChange={(e) => setFormData({...formData, image_url: e.target.value})}
+            onChange={(e) => setFormData({...formData, image: e.target.value})}
             className="bg-white/5 border-white/10 text-white"
           />
           <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
@@ -400,7 +400,7 @@ function AddPuzzleDialog({ onAdd, defaultStatus }) {
           <Button type="submit" disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600">
             {loading ? 'Ajout...' : 'Ajouter'}
           </Button>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

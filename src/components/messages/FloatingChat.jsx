@@ -269,7 +269,7 @@ function ChatWindow({ friend, user, onClose, unreadCount }) {
       await base44.entities.DirectMessage.create({
         sender_email: user.email,
         sender_name: user.full_name || user.email,
-        receiver_email: friend.email,
+        recipient: friend.email,
         receiver_name: friend.name,
         message: newMessage.trim(),
         conversation_id: conversationId,
@@ -347,7 +347,7 @@ function ChatWindow({ friend, user, onClose, unreadCount }) {
           </div>
 
           {/* Input */}
-          <form onSubmit={sendMessage} className="p-3 border-t border-white/10">
+          <div className="p-3 border-t border-white/10">
             <div className="flex gap-2">
               <Input
                 placeholder="Message..."
@@ -364,7 +364,7 @@ function ChatWindow({ friend, user, onClose, unreadCount }) {
                 <Send className="w-4 h-4" />
               </Button>
             </div>
-          </form>
+          </div>
         </>
       )}
     </motion.div>

@@ -77,7 +77,7 @@ function parseCSV(text) {
       puzzle_brand: brandIdx !== -1 ? (cols[brandIdx]?.trim() || '') : '',
       puzzle_pieces: piecesIdx !== -1 ? (parseInt(cols[piecesIdx]) || 0) : 0,
       status: normalizeStatus(statusIdx !== -1 ? cols[statusIdx] : ''),
-      image_url: imageIdx !== -1 ? (cols[imageIdx]?.trim() || '') : '',
+      image: imageIdx !== -1 ? (cols[imageIdx]?.trim() || '') : '',
       puzzle_reference: refIdx !== -1 ? (cols[refIdx]?.trim() || '') : '',
     });
   }
@@ -151,7 +151,7 @@ export default function CollectionImportSection({ user, onImportDone }) {
           puzzle_brand: row.puzzle_brand,
           puzzle_pieces: row.puzzle_pieces,
           status: row.status,
-          image_url: row.image_url,
+          image: row.image_url,
           puzzle_reference: row.puzzle_reference,
         });
         ok++;

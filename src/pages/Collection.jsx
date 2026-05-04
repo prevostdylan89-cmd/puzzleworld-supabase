@@ -252,7 +252,7 @@ export default function Collection() {
             puzzle_brand: puzzle.brand || '',
             puzzle_pieces: puzzle.piece_count || 0,
             puzzle_reference: ref,
-            image_url: puzzle.image_hd || '',
+            image: puzzle.image_hd || '',
             status
           });
           added++;

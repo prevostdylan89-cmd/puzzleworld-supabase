@@ -63,7 +63,7 @@ export default function Home() {
   const loadPageSettings = async () => {
     try {
       const settings = await base44.entities.PageSettings.filter({ page_name: 'Events' });
-      if (settings.length > 0 && settings[0].is_active === false) {
+      if (settings.length > 0 && settings[0].is_visible === false) {
         setEventsInMaintenance(true);
       }
     } catch (e) {

@@ -53,7 +53,7 @@ export default function Friends() {
   }, [user]);
 
   const loadUnreadCount = async (currentUser) => {
-    const unreadMsgs = await base44.entities.DirectMessage.filter({ receiver_email: currentUser.email, is_read: false });
+    const unreadMsgs = await base44.entities.DirectMessage.filter({ recipient: currentUser.email, is_read: false });
     const uniqueConvos = new Set(unreadMsgs.map(m => m.conversation_id));
     setUnreadConversationsCount(uniqueConvos.size);
   };
@@ -129,7 +129,7 @@ export default function Friends() {
     await base44.entities.DirectMessage.create({
       sender_email: user.email,
       sender_name: user.full_name || user.email,
-      receiver_email: selectedFriend.email,
+      recipient: selectedFriend.email,
       receiver_name: selectedFriend.name,
       message: newMessage.trim(),
       conversation_id: conversationId,
@@ -143,7 +143,7 @@ export default function Friends() {
     await base44.entities.Friendship.create({
       requester_email: user.email,
       requester_name: user.full_name || user.email,
-      addressee_email: targetUser.email,
+      friend_email: targetUser.email,
       addressee_name: targetUser.display_name || targetUser.full_name || targetUser.email,
       status: 'pending'
     });
@@ -332,7 +332,7 @@ export default function Friends() {
                       </div>
                       {/* Input fixé en bas */}
                       <div className="flex-shrink-0 px-4 py-3 border-t border-white/10 bg-[#000019]">
-                        <form onSubmit={sendMessage} className="flex gap-2">
+                        <div className="flex gap-2">
                           <Input placeholder="Message..." value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             className="bg-white/5 border-white/20 text-white flex-1"
@@ -340,7 +340,7 @@ export default function Friends() {
                           <Button type="submit" size="icon" className="bg-orange-500 hover:bg-orange-600 flex-shrink-0 w-11 h-11" disabled={!newMessage.trim()}>
                             <Send className="w-4 h-4" />
                           </Button>
-                        </form>
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -401,7 +401,7 @@ export default function Friends() {
                         })}
                         <div ref={messagesEndRef} />
                       </div>
-                      <form onSubmit={sendMessage} className="p-4 border-t border-white/10 flex-shrink-0">
+                      <div className="p-4 border-t border-white/10 flex-shrink-0">
                         <div className="flex gap-2">
                           <Input placeholder={t('writeMessage')} value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
@@ -410,7 +410,7 @@ export default function Friends() {
                             <Send className="w-4 h-4" />
                           </Button>
                         </div>
-                      </form>
+                      </div>
                     </>
                   ) : (
                     <div className="flex-1 flex items-center justify-center">

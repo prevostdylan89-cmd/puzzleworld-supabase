@@ -95,7 +95,7 @@ export default function CommentSection({ post, user, onCommentAdded }) {
 
   useEffect(() => {
     if (!user?.email) return;
-    base44.entities.UserProfile.filter({ email: user.email })
+    base44.entities.UserProfile.filter({ created_by: user.email  })
       .then(profiles => { 
         if (profiles.length > 0 && profiles[0].profile_photo) {
           setCurrentUserPhoto(profiles[0].profile_photo);
@@ -165,7 +165,7 @@ export default function CommentSection({ post, user, onCommentAdded }) {
     <div className="border-t border-white/[0.06] bg-white/[0.02]">
       {/* Comment Form */}
       {user && (
-        <form onSubmit={handleSubmit} className="p-4 border-b border-white/[0.06]">
+        <div className="p-4 border-b border-white/[0.06]">
           <div className="flex gap-3">
             <Avatar className="h-8 w-8 ring-2 ring-orange-500/20">
               {currentUserPhoto ? (
@@ -198,7 +198,7 @@ export default function CommentSection({ post, user, onCommentAdded }) {
               </Button>
             </div>
           </div>
-        </form>
+        </div>
       )}
 
       {/* Comments List */}

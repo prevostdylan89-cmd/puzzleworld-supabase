@@ -104,7 +104,7 @@ export default function CreatePostForm({ user, onPostCreated }) {
       // Get display_name from UserProfile
       let displayName = user.full_name || user.email;
       try {
-        const profiles = await base44.entities.UserProfile.filter({ email: user.email });
+        const profiles = await base44.entities.UserProfile.filter({ created_by: user.email  });
         if (profiles.length > 0 && profiles[0].display_name) {
           displayName = profiles[0].display_name;
         }
@@ -134,7 +134,7 @@ export default function CreatePostForm({ user, onPostCreated }) {
           puzzle_name: puzzleName || 'Puzzle',
           puzzle_brand: puzzleBrand,
           puzzle_pieces: parseInt(puzzlePieces),
-          image_url: imageUrl
+          image: imageUrl
         });
 
         const completedCount = (await base44.entities.CompletedPuzzle.filter({ created_by: user.email })).length;
@@ -191,7 +191,7 @@ export default function CreatePostForm({ user, onPostCreated }) {
 
   useEffect(() => {
     if (user?.email) {
-      base44.entities.UserProfile.filter({ email: user.email })
+      base44.entities.UserProfile.filter({ created_by: user.email  })
         .then(profiles => {
           if (profiles.length > 0 && profiles[0].profile_photo) {
             setUserProfilePhoto(profiles[0].profile_photo);

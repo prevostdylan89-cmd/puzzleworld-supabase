@@ -61,13 +61,11 @@ export default function PostCard({ post, user, isFeatured = false }) {
 
   const checkFriendStatus = async () => {
     if (!user || isOwnPost) return;
-    const sentCheck = await base44.entities.Friendship.filter({
-      requester_email: user.email,
-      addressee_email: post.created_by
+    const sentCheck = await base44.entities.Friendship.filter({ created_by: user.email,
+      friend_email: post.created_by
     });
-    const receivedCheck = await base44.entities.Friendship.filter({
-      requester_email: post.created_by,
-      addressee_email: user.email
+    const receivedCheck = await base44.entities.Friendship.filter({ created_by: post.created_by,
+      friend_email: user.email
     });
     if (sentCheck.length > 0) {
       setFriendStatus(sentCheck[0].status === 'accepted' ? 'friend' : 'pending');
@@ -87,9 +85,8 @@ export default function PostCard({ post, user, isFeatured = false }) {
 
   const checkIfFollowing = async () => {
     if (!user || isOwnPost) return;
-    const follows = await base44.entities.Follow.filter({
-      follower_email: user.email,
-      following_email: post.created_by
+    const follows = await base44.entities.Follow.filter({ created_by: user.email,
+      following: post.created_by
     });
     setIsFollowing(follows.length > 0);
   };
@@ -221,7 +218,7 @@ export default function PostCard({ post, user, isFeatured = false }) {
           puzzle_brand: post.puzzle_brand || '',
           puzzle_pieces: post.puzzle_pieces || 0,
           puzzle_reference: post.puzzle_reference || '',
-          image_url: post.image_url || '',
+          image: post.image_url || '',
           status: 'wishlist'
         });
         setIsInWishlist(true);
@@ -257,17 +254,16 @@ export default function PostCard({ post, user, isFeatured = false }) {
 
     try {
       if (previousFollowing) {
-        const follows = await base44.entities.Follow.filter({
-          follower_email: user.email,
-          following_email: post.created_by
+        const follows = await base44.entities.Follow.filter({ created_by: user.email,
+          following: post.created_by
         });
         if (follows.length > 0) {
           await base44.entities.Follow.delete(follows[0].id);
         }
       } else {
         await base44.entities.Follow.create({
-          follower_email: user.email,
-          following_email: post.created_by
+          created_by: user.email,
+          following: post.created_by
         });
       }
     } catch (error) {
@@ -287,7 +283,7 @@ export default function PostCard({ post, user, isFeatured = false }) {
     try {
       await base44.entities.Friendship.create({
         requester_email: user.email,
-        addressee_email: post.created_by,
+        friend_email: post.created_by,
         status: 'pending',
       });
       setFriendStatus('pending');
@@ -339,7 +335,7 @@ export default function PostCard({ post, user, isFeatured = false }) {
           puzzle_brand: post.puzzle_brand || '',
           puzzle_pieces: post.puzzle_pieces || 0,
           puzzle_reference: post.puzzle_reference || '',
-          image_url: post.image_url || '',
+          image: post.image_url || '',
           status: 'done',
           notes: 'Non aimé'
         });
@@ -406,7 +402,7 @@ export default function PostCard({ post, user, isFeatured = false }) {
           puzzle_brand: post.puzzle_brand || '',
           puzzle_pieces: post.puzzle_pieces || 0,
           puzzle_reference: post.puzzle_reference || '',
-          image_url: post.image_url || '',
+          image: post.image_url || '',
           status: 'wishlist'
         });
         

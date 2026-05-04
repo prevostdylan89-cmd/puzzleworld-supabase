@@ -31,7 +31,7 @@ export default function FriendRequestNotification() {
         };
 
         // Get requester's display name
-        base44.entities.UserProfile.filter({ email: event.data.requester_email })
+        base44.entities.UserProfile.filter({ created_by: event.data.requester_email  })
           .then(profiles => {
             if (profiles.length > 0) {
               newNotif.displayName = profiles[0].display_name || profiles[0].full_name || event.data.requester_email;
