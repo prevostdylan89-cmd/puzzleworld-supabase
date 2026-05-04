@@ -2,11 +2,12 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import LoginPage from '@/pages/Login';
 import Blog from './pages/Blog';
 import Tutorial from './pages/Tutorial';
+import { useEffect } from 'react';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -16,10 +17,24 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout
   ? <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
 
-const AuthenticatedApp = () => {
-  const { isLoadingAuth, isAuthenticated, isGuest } = useAuth();
+// Composant qui redirige vers / après connexion
+const LoginRoute = () => {
+  const { isAuthenticated, isGuest } = useAuth();
+  const navigate = useNavigate();
 
-  // Spinner pendant le chargement de l'auth
+  useEffect(() => {
+    if (isAuthenticated || isGuest) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, isGuest]);
+
+  return <LoginPage />;
+};
+
+// Route protégée
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated, isGuest, isLoadingAuth } = useAuth();
+
   if (isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -28,42 +43,40 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Si ni authentifié ni invité → page de login
   if (!isAuthenticated && !isGuest) {
-    return <LoginPage />;
+    return <Navigate to="/login" replace />;
   }
 
-  // App principale
+  return children;
+};
+
+const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route path="/" element={
-        <LayoutWrapper currentPageName={mainPageKey}>
-          <MainPage />
-        </LayoutWrapper>
+        <ProtectedRoute>
+          <LayoutWrapper currentPageName={mainPageKey}>
+            <MainPage />
+          </LayoutWrapper>
+        </ProtectedRoute>
       } />
       {Object.entries(Pages).map(([path, Page]) => (
         <Route
           key={path}
           path={`/${path}`}
           element={
-            <LayoutWrapper currentPageName={path}>
-              <Page />
-            </LayoutWrapper>
+            <ProtectedRoute>
+              <LayoutWrapper currentPageName={path}>
+                <Page />
+              </LayoutWrapper>
+            </ProtectedRoute>
           }
         />
       ))}
       <Route path="/Blog" element={<LayoutWrapper currentPageName="Blog"><Blog /></LayoutWrapper>} />
       <Route path="/Tutorial" element={<Tutorial />} />
-      <Route path="*" element={
-        <LayoutWrapper currentPageName="">
-          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-            <div className="text-6xl">🧩</div>
-            <h1 className="text-2xl font-bold text-slate-800">Page introuvable</h1>
-            <a href="/" className="text-purple-700 underline">Retour à l'accueil</a>
-          </div>
-        </LayoutWrapper>
-      } />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
@@ -73,7 +86,7 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
-          <AuthenticatedApp />
+          <AppRoutes />
         </Router>
         <Toaster />
       </QueryClientProvider>
