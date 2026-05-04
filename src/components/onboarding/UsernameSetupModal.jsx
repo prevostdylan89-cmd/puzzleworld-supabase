@@ -79,7 +79,7 @@ export default function UsernameSetupModal({ user, onComplete }) {
     setLoading(true);
     try {
       // Save to UserProfile
-      const existingProfile = await base44.entities.UserProfile.filter({ email: user.email });
+      const existingProfile = await base44.entities.UserProfile.filter({ created_by: user.email });
       const profileData = {
         email: user.email,
         full_name: user.full_name || user.email,
