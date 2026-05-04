@@ -61,18 +61,7 @@ export default function UsernameSetupModal({ user, onComplete }) {
         return;
       }
 
-      // Also check via AI for borderline content
-      const aiCheck = await base44.integrations.Core.InvokeLLM({
-        prompt: `Est-ce que le pseudo "${trimmed}" contient un mot injurieux, raciste, haineux, ou offensant en français ou anglais ? Réponds uniquement avec "oui" ou "non".`,
-        response_json_schema: { type: 'object', properties: { forbidden: { type: 'boolean' } } }
-      });
-
-      if (aiCheck?.forbidden) {
-        setError('Ce pseudo contient des termes non autorisés');
-        setChecking(false);
-        return;
-      }
-
+      // Vérification IA désactivée (base44 uniquement)
       const code = generateFriendCode(trimmed);
       setFriendCode(code);
       setStep(2);

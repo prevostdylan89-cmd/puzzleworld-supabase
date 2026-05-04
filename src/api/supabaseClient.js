@@ -158,3 +158,24 @@ base44.agents = {
   getWhatsAppConnectURL: () => '#',
   invoke: async () => null,
 };
+
+// ── Integrations (compatibilité base44.integrations.Core) ─────────────────
+base44.integrations = {
+  Core: {
+    // Upload de fichier vers Supabase Storage
+    UploadFile: async ({ file }) => {
+      const ext = file.name.split('.').pop();
+      const path = `uploads/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data, error } = await supabase.storage
+        .from('puzzle-images')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage
+        .from('puzzle-images')
+        .getPublicUrl(data.path);
+      return { file_url: urlData.publicUrl };
+    },
+    // InvokeLLM désactivé - retourne null silencieusement
+    InvokeLLM: async () => null,
+  }
+};
