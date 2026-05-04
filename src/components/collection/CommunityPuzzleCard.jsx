@@ -52,9 +52,9 @@ export default function CommunityPuzzleCard({ puzzle, showAffiliateLink = false 
             </div>
           )}
           
-          {puzzle.wishlistCount > 0 && (
+          {puzzle.wishlist_count > 0 && (
             <div className="flex items-center gap-1 text-xs text-orange-400/80 mb-2">
-              <span>⭐ {puzzle.wishlistCount}</span>
+              <span>⭐ {puzzle.wishlist_count}</span>
             </div>
           )}
           {showAffiliateLink && amazonAffiliateLink && (

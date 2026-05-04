@@ -110,11 +110,11 @@ export default function DashboardData() {
   }
 
   const puzzlesBySocial = [...puzzles].sort((a, b) => 
-    (b.socialScore || 0) - (a.socialScore || 0)
+    (b.social_score || 0) - (a.social_score || 0)
   );
 
   const puzzlesByWishlist = [...puzzles].sort((a, b) => 
-    (b.wishlistCount || 0) - (a.wishlistCount || 0)
+    (b.wishlist_count || 0) - (a.wishlist_count || 0)
   );
 
   const puzzlesByAddedCount = [...puzzles].sort((a, b) => 
@@ -174,11 +174,11 @@ export default function DashboardData() {
 
           <div className="flex items-center gap-6">
             <div className="text-center">
-              <div className="text-green-400 font-bold text-lg">{puzzle.socialScore || 0}</div>
+              <div className="text-green-400 font-bold text-lg">{puzzle.social_score || 0}</div>
               <div className="text-white/50 text-xs">Score Social</div>
             </div>
             <div className="text-center">
-              <div className="text-orange-400 font-bold text-lg">{puzzle.wishlistCount || 0}</div>
+              <div className="text-orange-400 font-bold text-lg">{puzzle.wishlist_count || 0}</div>
               <div className="text-white/50 text-xs">Wishlist</div>
             </div>
             <div className="text-center">

@@ -566,7 +566,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           if (catalogEntries.length > 0) {
             const cat = catalogEntries[0];
             const updates = { added_count: (cat.added_count || 0) + 1 };
-            if (status === 'wishlist') updates.wishlistCount = (cat.wishlistCount || 0) + 1;
+            if (status === 'wishlist') updates.wishlist_count = (cat.wishlist_count || 0) + 1;
             await base44.entities.PuzzleCatalog.update(catalogPuzzleId, updates);
           }
         }

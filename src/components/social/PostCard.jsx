@@ -78,7 +78,7 @@ export default function PostCard({ post, user, isFeatured = false }) {
     if (!user) return;
     const likes = await base44.entities.Like.filter({
       post_id: post.id,
-      user_id: user.email
+      created_by: user.email
     });
     setIsLiked(likes.length > 0);
   };
@@ -137,20 +137,20 @@ export default function PostCard({ post, user, isFeatured = false }) {
       if (previousLiked) {
         const likes = await base44.entities.Like.filter({
           post_id: post.id,
-          user_id: user.email
+          created_by: user.email
         });
         if (likes.length > 0) {
           await base44.entities.Like.delete(likes[0].id);
           const newCount = Math.max(0, previousCount - 1);
           await base44.entities.Post.update(post.id, { likes_count: newCount });
           
-          // Update socialScore in PuzzleCatalog if post is linked to a puzzle
+          // Update social_score in PuzzleCatalog if post is linked to a puzzle
           if (post.puzzle_reference) {
             const puzzles = await base44.entities.PuzzleCatalog.filter({ asin: post.puzzle_reference });
             if (puzzles.length > 0) {
               const puzzle = puzzles[0];
               await base44.entities.PuzzleCatalog.update(puzzle.id, {
-                socialScore: Math.max(0, (puzzle.socialScore || 0) - 1)
+                social_score: Math.max(0, (puzzle.social_score || 0) - 1)
               });
             }
           }
@@ -158,18 +158,18 @@ export default function PostCard({ post, user, isFeatured = false }) {
       } else {
         await base44.entities.Like.create({
           post_id: post.id,
-          user_id: user.email
+          created_by: user.email
         });
         const newCount = previousCount + 1;
         await base44.entities.Post.update(post.id, { likes_count: newCount });
         
-        // Update socialScore in PuzzleCatalog if post is linked to a puzzle
+        // Update social_score in PuzzleCatalog if post is linked to a puzzle
         if (post.puzzle_reference) {
           const puzzles = await base44.entities.PuzzleCatalog.filter({ asin: post.puzzle_reference });
           if (puzzles.length > 0) {
             const puzzle = puzzles[0];
             await base44.entities.PuzzleCatalog.update(puzzle.id, {
-              socialScore: (puzzle.socialScore || 0) + 1
+              social_score: (puzzle.social_score || 0) + 1
             });
           }
         }
@@ -201,13 +201,13 @@ export default function PostCard({ post, user, isFeatured = false }) {
           setIsInWishlist(false);
           toast.success(t('removedFromWishlist'));
           
-          // Update wishlistCount in PuzzleCatalog
+          // Update wishlist_count in PuzzleCatalog
           if (post.puzzle_reference) {
             const puzzles = await base44.entities.PuzzleCatalog.filter({ asin: post.puzzle_reference });
             if (puzzles.length > 0) {
               const puzzle = puzzles[0];
               await base44.entities.PuzzleCatalog.update(puzzle.id, {
-                wishlistCount: Math.max(0, (puzzle.wishlistCount || 0) - 1)
+                wishlist_count: Math.max(0, (puzzle.wishlist_count || 0) - 1)
               });
             }
           }
@@ -224,13 +224,13 @@ export default function PostCard({ post, user, isFeatured = false }) {
         setIsInWishlist(true);
         toast.success(t('addedToWishlist'));
         
-        // Update wishlistCount in PuzzleCatalog
+        // Update wishlist_count in PuzzleCatalog
         if (post.puzzle_reference) {
           const puzzles = await base44.entities.PuzzleCatalog.filter({ asin: post.puzzle_reference });
           if (puzzles.length > 0) {
             const puzzle = puzzles[0];
             await base44.entities.PuzzleCatalog.update(puzzle.id, {
-              wishlistCount: (puzzle.wishlistCount || 0) + 1
+              wishlist_count: (puzzle.wishlist_count || 0) + 1
             });
           }
         }
@@ -316,13 +316,13 @@ export default function PostCard({ post, user, isFeatured = false }) {
           await base44.entities.UserPuzzle.delete(dislikes[0].id);
           toast.success(t('dislikeRemoved'));
           
-          // Update socialScore (+1 when removing dislike)
+          // Update social_score (+1 when removing dislike)
           if (post.puzzle_reference) {
             const puzzles = await base44.entities.PuzzleCatalog.filter({ asin: post.puzzle_reference });
             if (puzzles.length > 0) {
               const puzzle = puzzles[0];
               await base44.entities.PuzzleCatalog.update(puzzle.id, {
-                socialScore: (puzzle.socialScore || 0) + 1,
+                social_score: (puzzle.social_score || 0) + 1,
                 total_dislikes: Math.max(0, (puzzle.total_dislikes || 0) - 1)
               });
             }
@@ -342,13 +342,13 @@ export default function PostCard({ post, user, isFeatured = false }) {
         
         toast.success(t('puzzleDisliked'));
         
-        // Update socialScore (-1 for dislike)
+        // Update social_score (-1 for dislike)
         if (post.puzzle_reference) {
           const puzzles = await base44.entities.PuzzleCatalog.filter({ asin: post.puzzle_reference });
           if (puzzles.length > 0) {
             const puzzle = puzzles[0];
             await base44.entities.PuzzleCatalog.update(puzzle.id, {
-              socialScore: (puzzle.socialScore || 0) - 1,
+              social_score: (puzzle.social_score || 0) - 1,
               total_dislikes: (puzzle.total_dislikes || 0) + 1
             });
           }
@@ -384,13 +384,13 @@ export default function PostCard({ post, user, isFeatured = false }) {
           toast.success(t('puzzleRemovedFromWishlist'));
           setIsInWishlist(false);
           
-          // Update wishlistCount in PuzzleCatalog
+          // Update wishlist_count in PuzzleCatalog
           if (post.puzzle_reference) {
             const puzzles = await base44.entities.PuzzleCatalog.filter({ asin: post.puzzle_reference });
             if (puzzles.length > 0) {
               const puzzle = puzzles[0];
               await base44.entities.PuzzleCatalog.update(puzzle.id, {
-                wishlistCount: Math.max(0, (puzzle.wishlistCount || 0) - 1)
+                wishlist_count: Math.max(0, (puzzle.wishlist_count || 0) - 1)
               });
             }
           }
@@ -409,13 +409,13 @@ export default function PostCard({ post, user, isFeatured = false }) {
         toast.success(t('puzzleAddedToWishlist'));
         setIsInWishlist(true);
         
-        // Update wishlistCount in PuzzleCatalog
+        // Update wishlist_count in PuzzleCatalog
         if (post.puzzle_reference) {
           const puzzles = await base44.entities.PuzzleCatalog.filter({ asin: post.puzzle_reference });
           if (puzzles.length > 0) {
             const puzzle = puzzles[0];
             await base44.entities.PuzzleCatalog.update(puzzle.id, {
-              wishlistCount: (puzzle.wishlistCount || 0) + 1
+              wishlist_count: (puzzle.wishlist_count || 0) + 1
             });
           }
         }

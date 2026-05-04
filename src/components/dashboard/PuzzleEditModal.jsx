@@ -68,7 +68,7 @@ export default function PuzzleEditModal({ open, onClose, puzzle, onUpdate }) {
         ean: formData.ean,
         amazon_link: formData.amazon_link || (formData.asin ? `https://www.amazon.fr/dp/${formData.asin}?tag=puzzleworld-21` : ''),
         image_hd: formData.image_hd,
-        ...(isCreating ? { socialScore: 0, wishlistCount: 0, added_count: 0, total_likes: 0, total_dislikes: 0 } : {})
+        ...(isCreating ? { social_score: 0, wishlist_count: 0, added_count: 0, total_likes: 0, total_dislikes: 0 } : {})
       };
 
       if (isCreating) {

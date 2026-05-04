@@ -78,7 +78,7 @@ export default function Home() {
         const sorted = featured.sort((a, b) => a.position - b.position);
         const catalogIds = sorted.map(f => f.puzzle_catalog_id).filter(Boolean);
         // Fetch full catalog data for all featured puzzles
-        const allCatalog = await base44.entities.PuzzleCatalog.list('-socialScore', 500);
+        const allCatalog = await base44.entities.PuzzleCatalog.list('-social_score', 500);
         const catalogMap = {};
         allCatalog.forEach(p => { catalogMap[p.id] = p; });
         const ordered = sorted
@@ -93,8 +93,8 @@ export default function Home() {
         } : null));
         setTopPuzzles(result.filter(Boolean).filter(p => p.id));
       } else {
-        // Fallback: top 10 puzzles by socialScore
-        const puzzles = await base44.entities.PuzzleCatalog.filter({ status: 'active' }, '-socialScore', 10);
+        // Fallback: top 10 puzzles by social_score
+        const puzzles = await base44.entities.PuzzleCatalog.filter({ status: 'active' }, '-social_score', 10);
         setTopPuzzles(puzzles);
       }
     } catch (e) {

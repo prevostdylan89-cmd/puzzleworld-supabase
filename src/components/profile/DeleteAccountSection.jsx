@@ -48,7 +48,7 @@ export default function DeleteAccountSection() {
       }
 
       // Delete likes
-      const userLikes = await base44.entities.Like.filter({ user_id: userEmail });
+      const userLikes = await base44.entities.Like.filter({ created_by: userEmail });
       for (const like of userLikes) {
         await base44.entities.Like.delete(like.id);
       }

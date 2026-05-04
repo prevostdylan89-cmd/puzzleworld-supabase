@@ -73,3 +73,15 @@ DROP POLICY IF EXISTS "own user_profiles" ON user_profiles;
 CREATE POLICY "own user_profiles" ON user_profiles FOR ALL
   USING (created_by = auth.jwt() ->> 'email')
   WITH CHECK (created_by = auth.jwt() ->> 'email');
+
+-- Colonnes supplémentaires pour puzzle_catalog
+ALTER TABLE puzzle_catalog ADD COLUMN IF NOT EXISTS social_score NUMERIC DEFAULT 0;
+ALTER TABLE puzzle_catalog ADD COLUMN IF NOT EXISTS wishlist_count NUMERIC DEFAULT 0;
+
+-- Colonnes pour likes - user_id n'existe pas, on utilise created_by
+-- (déjà corrigé dans le code)
+
+-- Colonnes pour page_settings
+ALTER TABLE page_settings ADD COLUMN IF NOT EXISTS label TEXT;
+ALTER TABLE page_settings ADD COLUMN IF NOT EXISTS maintenance_message TEXT;
+ALTER TABLE page_settings ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;

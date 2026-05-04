@@ -104,7 +104,7 @@ export default function DashboardTopPuzzles() {
                 {/* Wishlist count */}
                 <div className="text-center">
                   <span className={`font-bold text-sm ${index < 3 ? 'text-orange-400' : 'text-white/70'}`}>
-                    {puzzle.wishlistCount}
+                    {puzzle.wishlist_count}
                   </span>
                 </div>
               </div>

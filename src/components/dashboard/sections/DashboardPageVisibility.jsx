@@ -56,7 +56,11 @@ export default function DashboardPageVisibility() {
       const setting = settings.find(s => s.page_name === pageName);
 
       if (existing.length > 0) {
-        await base44.entities.PageSettings.update(existing[0].id, { is_visible: !currentValue });
+        await base44.entities.PageSettings.update(existing[0].id, { 
+          is_visible: !currentValue,
+          is_active: !currentValue,
+          settings: { ...(existing[0].settings || {}), label: pageInfo?.label, maintenance_message: setting?.maintenance_message }
+        });
       } else {
         await base44.entities.PageSettings.create({
           page_name: pageName,
@@ -91,13 +95,13 @@ export default function DashboardPageVisibility() {
       const pageInfo = MANAGEABLE_PAGES.find(p => p.page_name === pageName);
 
       if (existing.length > 0) {
-        await base44.entities.PageSettings.update(existing[0].id, { maintenance_message: setting.maintenance_message });
+        await base44.entities.PageSettings.update(existing[0].id, { settings: { ...(existing[0].settings || {}), maintenance_message: setting.settings?.maintenance_message || setting.maintenance_message } });
       } else {
         await base44.entities.PageSettings.create({
           page_name: pageName,
           label: pageInfo?.label || pageName,
           is_visible: setting?.is_visible ?? true,
-          maintenance_message: setting?.maintenance_message,
+          settings: { ...(content?.settings || {}), maintenance_message: setting?.maintenance_message },
         });
       }
       toast.success('Message mis à jour');
@@ -155,7 +159,7 @@ export default function DashboardPageVisibility() {
                     : <EyeOff className="w-5 h-5 text-red-400" />
                   }
                   <div>
-                    <p className="text-white font-medium">{setting.label}</p>
+                    <p className="text-white font-medium">{setting.settings?.label || setting.label || setting.page_name}</p>
                     <p className="text-white/40 text-xs">/{setting.page_name}</p>
                   </div>
                 </div>
@@ -179,7 +183,7 @@ export default function DashboardPageVisibility() {
               {!isActive && (
                 <div className="mt-3 flex gap-2">
                   <Input
-                    value={setting.maintenance_message || ''}
+                    value={setting.settings?.maintenance_message || setting.maintenance_message || ''}
                     onChange={(e) => updateMessage(setting.page_name, e.target.value)}
                     placeholder="Message de maintenance..."
                     className="bg-white/5 border-white/10 text-white text-sm flex-1"
