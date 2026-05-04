@@ -54,7 +54,8 @@ export const AuthProvider = ({ children }) => {
       ...supabaseUser,
       // Champs base44
       email: supabaseUser.email,
-      full_name: meta.full_name || meta.name || supabaseUser.email?.split('@')[0] || 'Utilisateur',
+      full_name: meta.display_name || meta.full_name || meta.name || supabaseUser.email?.split('@')[0] || 'Utilisateur',
+      display_name: meta.display_name || meta.full_name || meta.name || supabaseUser.email?.split('@')[0] || 'Utilisateur',
       picture: meta.avatar_url || meta.picture || null,
       role: meta.role || 'user',
       username: meta.username || null,
