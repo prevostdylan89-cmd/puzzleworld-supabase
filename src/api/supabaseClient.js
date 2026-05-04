@@ -152,3 +152,9 @@ base44.functions = {
     }
   }
 };
+
+// Agents base44 - non disponible, remplacé par no-op
+base44.agents = {
+  getWhatsAppConnectURL: () => '#',
+  invoke: async () => null,
+};

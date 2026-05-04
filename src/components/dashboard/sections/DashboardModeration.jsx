@@ -1,8 +1,7 @@
 import React from 'react';
-import { base44 } from '@/api/supabaseClient';
 import { Shield } from 'lucide-react';
 
-const WHATSAPP_URL = base44.agents.getWhatsAppConnectURL('content_moderator');
+const WHATSAPP_URL = '#'; // Fonctionnalité agents base44 non disponible
 
 export default function DashboardModeration() {
   return (
