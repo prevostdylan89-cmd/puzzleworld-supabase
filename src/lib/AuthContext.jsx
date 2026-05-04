@@ -13,11 +13,33 @@ export const AuthProvider = ({ children }) => {
   const [appPublicSettings] = useState({ status: 'active' });
   const isLoadingPublicSettings = false;
 
+  // Charge le profil depuis user_profiles pour avoir le vrai display_name
+  const enrichUserWithProfile = async (supabaseUser) => {
+    const base = enrichUser(supabaseUser);
+    try {
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('display_name, avatar, bio, friend_code')
+        .eq('created_by', supabaseUser.email)
+        .limit(1);
+      if (profiles && profiles.length > 0 && profiles[0].display_name) {
+        return {
+          ...base,
+          full_name: profiles[0].display_name,
+          display_name: profiles[0].display_name,
+          picture: profiles[0].avatar || base.picture,
+          friend_code: profiles[0].friend_code,
+        };
+      }
+    } catch (e) {}
+    return base;
+  };
+
   useEffect(() => {
-    // Vérifie la session Supabase au démarrage
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        setUser(enrichUser(session.user));
+        const enriched = await enrichUserWithProfile(session.user);
+        setUser(enriched);
         setIsAuthenticated(true);
         localStorage.removeItem('guest_mode');
         setIsGuest(false);
@@ -27,10 +49,10 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(false);
     });
 
-    // Écoute les changements d'auth (login / logout / refresh token)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        setUser(enrichUser(session.user));
+        const enriched = await enrichUserWithProfile(session.user);
+        setUser(enriched);
         setIsAuthenticated(true);
         localStorage.removeItem('guest_mode');
         setIsGuest(false);
