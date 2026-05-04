@@ -11,4 +11,123 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// ─── Importer toutes les entités ─────────────────────────────
+import * as entities from './entities';
+
+// ─── Objet base44 de compatibilité ───────────────────────────
+// Reproduit l'API base44 pour que le code existant continue de fonctionner
+
+const getUser = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+};
+
+const enrichUser = (user) => {
+  if (!user) return null;
+  const meta = user.user_metadata || {};
+  return {
+    ...user,
+    email: user.email,
+    full_name: meta.full_name || meta.name || user.email?.split('@')[0] || 'Utilisateur',
+    picture: meta.avatar_url || meta.picture || null,
+    role: meta.role || 'user',
+    username: meta.username || null,
+    daily_scan_credits: meta.daily_scan_credits || {},
+  };
+};
+
+export const base44 = {
+  // ── Auth ──────────────────────────────────────────────────
+  auth: {
+    me: async () => {
+      const user = await getUser();
+      if (!user) throw { status: 401, message: 'Not authenticated' };
+      return enrichUser(user);
+    },
+    updateMe: async (payload) => {
+      const { data, error } = await supabase.auth.updateUser({ data: payload });
+      if (error) throw error;
+      return enrichUser(data.user);
+    },
+    logout: async () => {
+      await supabase.auth.signOut();
+    },
+    redirectToLogin: (redirectUrl) => {
+      window.location.href = '/login';
+    },
+    login: async (email, password) => {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return data;
+    },
+  },
+
+  // ── Entities (compatibilité base44.entities.XXX.list() etc.) ─
+  entities: {
+    Achievement:       entities.Achievement,
+    Badge:             entities.Badge,
+    BlogArticle:       entities.BlogArticle,
+    BlogCategory:      entities.BlogCategory,
+    BugReport:         entities.BugReport,
+    Comment:           entities.Comment,
+    CompletedPuzzle:   entities.CompletedPuzzle,
+    DirectMessage:     entities.DirectMessage,
+    Event:             entities.Event,
+    EventParticipant:  entities.EventParticipant,
+    FeaturedArticle:   entities.FeaturedArticle,
+    FeaturedEvent:     entities.FeaturedEvent,
+    FeaturedPuzzle:    entities.FeaturedPuzzle,
+    Follow:            entities.Follow,
+    Friendship:        entities.Friendship,
+    Like:              entities.Like,
+    OnlineGame:        entities.OnlineGame,
+    PageSettings:      entities.PageSettings,
+    PersonalPuzzle:    entities.PersonalPuzzle,
+    Post:              entities.Post,
+    PuzzleCatalog:     entities.PuzzleCatalog,
+    PuzzleCategory:    entities.UserCategory, // alias
+    PuzzleTimer:       entities.PuzzleTimer,
+    SpeedRecord:       entities.SpeedRecord,
+    SwipeInteraction:  entities.SwipeInteraction,
+    TrendMetric:       entities.TrendMetric,
+    User:              entities.User,
+    UserBadge:         entities.UserBadge,
+    UserCategory:      entities.UserCategory,
+    UserDNA:           entities.UserDNA,
+    UserLevel:         entities.UserLevel,
+    UserProfile:       entities.UserProfile,
+    UserPuzzle:        entities.UserPuzzle,
+    UserPuzzleLike:    entities.UserPuzzleLike,
+    UserSeenPuzzle:    entities.UserSeenPuzzle,
+    Wishlist:          entities.Wishlist,
+    WishlistAggregate: entities.WishlistAggregate,
+  },
+
+  // ── Storage (upload d'images) ─────────────────────────────
+  storage: {
+    upload: async (file, path) => {
+      const { data, error } = await supabase.storage
+        .from('puzzle-images')
+        .upload(path || `${Date.now()}_${file.name}`, file, { upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage
+        .from('puzzle-images')
+        .getPublicUrl(data.path);
+      return urlData.publicUrl;
+    },
+    getUrl: (path) => {
+      const { data } = supabase.storage
+        .from('puzzle-images')
+        .getPublicUrl(path);
+      return data.publicUrl;
+    },
+  },
+
+  // ── App logs (no-op silencieux) ───────────────────────────
+  appLogs: {
+    logUserInApp: async () => {},
+    log: async () => {},
+  },
+};
+
 export default supabase;
