@@ -137,7 +137,7 @@ export default function Profile() {
         base44.entities.Wishlist.filter({ created_by: currentUser.email }),
         base44.entities.UserPuzzle.filter({ created_by: currentUser.email, status: 'wishlist' }),
         base44.entities.Follow.filter({ following: currentUser.email }),
-        base44.entities.Follow.filter({ created_by: currentUser.email }),
+        base44.entities.Follow.filter({ follower_email: currentUser.email }),
         base44.entities.UserPuzzle.filter({ created_by: currentUser.email })
       ]);
       // Dedup wishlist by puzzle_name

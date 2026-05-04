@@ -39,7 +39,7 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
 
       if (loggedUser) {
         const [followCheck, sentCheck, receivedCheck] = await Promise.all([
-          base44.entities.Follow.filter({ created_by: loggedUser.email, following: userEmail }),
+          base44.entities.Follow.filter({ follower_email: loggedUser.email, following: userEmail }),
           base44.entities.Friendship.filter({ created_by: loggedUser.email, friend_email: userEmail }),
           base44.entities.Friendship.filter({ created_by: userEmail, friend_email: loggedUser.email }),
         ]);
@@ -82,7 +82,7 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
     toast.success(isFollowing ? t('unfollowed') : t('followedUser'));
     try {
       if (prev) {
-        const follows = await base44.entities.Follow.filter({ created_by: currentUser.email,
+        const follows = await base44.entities.Follow.filter({ follower_email: currentUser.email,
           following: userEmail,
         });
         if (follows.length > 0) await base44.entities.Follow.delete(follows[0].id);

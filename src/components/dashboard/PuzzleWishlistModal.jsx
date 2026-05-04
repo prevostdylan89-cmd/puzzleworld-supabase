@@ -73,10 +73,10 @@ export default function PuzzleWishlistModal({ open, onClose, puzzle }) {
               <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
                 <Bookmark className="w-8 h-8 text-orange-400" />
               </div>
-              <div className="text-5xl font-bold text-white mb-2">{puzzle.wishlist_count || 0}</div>
+              <div className="text-5xl font-bold text-white mb-2">{puzzle.wishlistCount || 0}</div>
               <div className="text-orange-400 text-lg font-medium mb-2">Wishlists</div>
               <p className="text-white/60 text-sm">
-                {puzzle.wishlist_count || 0} utilisateur{(puzzle.wishlist_count || 0) > 1 ? 's' : ''} {(puzzle.wishlist_count || 0) > 1 ? 'veulent' : 'veut'} ce puzzle
+                {puzzle.wishlistCount || 0} utilisateur{(puzzle.wishlistCount || 0) > 1 ? 's' : ''} {(puzzle.wishlistCount || 0) > 1 ? 'veulent' : 'veut'} ce puzzle
               </p>
             </div>
 

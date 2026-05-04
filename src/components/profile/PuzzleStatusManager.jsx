@@ -397,7 +397,7 @@ function AddPuzzleDialog({ onAdd, defaultStatus }) {
               <SelectItem value="inbox" className="text-white">Dans la Boîte</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="submit" disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600">
+          <Button type="button" onClick={handleSubmit} disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600">
             {loading ? 'Ajout...' : 'Ajouter'}
           </Button>
         </div>

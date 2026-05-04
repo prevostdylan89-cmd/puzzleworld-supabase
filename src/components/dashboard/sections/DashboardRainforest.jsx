@@ -93,7 +93,7 @@ export default function DashboardRainforest() {
       } else {
         await supabase
           .from('page_settings')
-          .insert([{ page_name: SETTINGS_KEY, settings, is_visible: true }]);
+          .insert([{ page_name: SETTINGS_KEY, settings, is_active: true }]);
       }
 
       setApiKey(newApiKey.trim());

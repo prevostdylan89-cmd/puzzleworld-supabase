@@ -53,7 +53,7 @@ export default function Friends() {
   }, [user]);
 
   const loadUnreadCount = async (currentUser) => {
-    const unreadMsgs = await base44.entities.DirectMessage.filter({ recipient: currentUser.email, is_read: false });
+    const unreadMsgs = await base44.entities.DirectMessage.filter({ receiver_email: currentUser.email, is_read: false });
     const uniqueConvos = new Set(unreadMsgs.map(m => m.conversation_id));
     setUnreadConversationsCount(uniqueConvos.size);
   };
@@ -129,7 +129,7 @@ export default function Friends() {
     await base44.entities.DirectMessage.create({
       sender_email: user.email,
       sender_name: user.full_name || user.email,
-      recipient: selectedFriend.email,
+      receiver_email: selectedFriend.email,
       receiver_name: selectedFriend.name,
       message: newMessage.trim(),
       conversation_id: conversationId,

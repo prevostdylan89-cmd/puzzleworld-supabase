@@ -269,7 +269,7 @@ function ChatWindow({ friend, user, onClose, unreadCount }) {
       await base44.entities.DirectMessage.create({
         sender_email: user.email,
         sender_name: user.full_name || user.email,
-        recipient: friend.email,
+        receiver_email: friend.email,
         receiver_name: friend.name,
         message: newMessage.trim(),
         conversation_id: conversationId,

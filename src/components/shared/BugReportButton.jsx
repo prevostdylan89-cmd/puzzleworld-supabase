@@ -141,7 +141,7 @@ export default function BugReportModal({ open, onClose }) {
                 </div>
 
                 <Button
-                  type="submit"
+                  type="button" onClick={handleSubmit}
                   disabled={loading || !form.title || !form.description}
                   className="w-full bg-red-500 hover:bg-red-600 text-white rounded-xl"
                 >

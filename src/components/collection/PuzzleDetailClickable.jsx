@@ -130,7 +130,7 @@ export default function PuzzleDetailClickable({ puzzleReference, onClose }) {
         if (wishlist.length > 0) {
           await base44.entities.UserPuzzle.delete(wishlist[0].id);
           await base44.entities.PuzzleCatalog.update(puzzle.id, {
-            wishlist_count: Math.max(0, (puzzle.wishlist_count || 0) - 1)
+            wishlistCount: Math.max(0, (puzzle.wishlistCount || 0) - 1)
           });
           setIsInWishlist(false);
           toast.success('Retiré de la wishlist');
@@ -145,7 +145,7 @@ export default function PuzzleDetailClickable({ puzzleReference, onClose }) {
           status: 'wishlist'
         });
         await base44.entities.PuzzleCatalog.update(puzzle.id, {
-          wishlist_count: (puzzle.wishlist_count || 0) + 1
+          wishlistCount: (puzzle.wishlistCount || 0) + 1
         });
         setIsInWishlist(true);
         toast.success('Ajouté à la wishlist!');
@@ -219,7 +219,7 @@ export default function PuzzleDetailClickable({ puzzleReference, onClose }) {
                     <TrendingUp className="w-4 h-4 text-orange-400" />
                     <span className="text-white/60 text-sm">Popularité</span>
                   </div>
-                  <p className="text-white text-xl font-bold">{puzzle.social_score || 0}</p>
+                  <p className="text-white text-xl font-bold">{puzzle.socialScore || 0}</p>
                 </div>
               </div>
 

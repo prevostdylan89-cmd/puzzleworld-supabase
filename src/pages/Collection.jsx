@@ -349,7 +349,7 @@ export default function Collection() {
       case 'newest':
         return new Date(b.created_date) - new Date(a.created_date);
       case 'popular':
-        return (b.wishlist_count || 0) - (a.wishlist_count || 0);
+        return (b.wishlistCount || 0) - (a.wishlistCount || 0);
       case 'pieces-asc':
         return (a.piece_count || 0) - (b.piece_count || 0);
       case 'pieces-desc':
@@ -820,9 +820,9 @@ export default function Collection() {
               <span className="truncate max-w-[60%]">{puzzle.brand || ''}</span>
               <span>{puzzle.piece_count} pcs</span>
             </div>
-            {puzzle.wishlist_count > 0 && (
+            {puzzle.wishlistCount > 0 && (
               <div className="flex items-center gap-2 mt-1 text-[10px]">
-                <span className="text-orange-400">⭐ {puzzle.wishlist_count}</span>
+                <span className="text-orange-400">⭐ {puzzle.wishlistCount}</span>
               </div>
             )}
           </div>

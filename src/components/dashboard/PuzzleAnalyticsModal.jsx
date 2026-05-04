@@ -74,7 +74,7 @@ export default function PuzzleAnalyticsModal({ open, onClose, puzzle }) {
       setAnalytics({
         daysOnSite,
         likesCount: likeCount,
-        wishlist_count: puzzle.wishlist_count || 0,
+        wishlistCount: puzzle.wishlistCount || 0,
         dislikesCount: dislikeCount,
         popularityScore: popularityScore,
         totalInteractions: totalInteractions,
@@ -236,7 +236,7 @@ export default function PuzzleAnalyticsModal({ open, onClose, puzzle }) {
                   <div className="text-green-400 text-xs mt-1">75 pts chacun</div>
                 </div>
                 <div className="text-center p-4 bg-orange-500/10 rounded-lg border border-orange-500/20">
-                  <div className="text-2xl font-bold text-orange-400">{analytics?.wishlist_count}</div>
+                  <div className="text-2xl font-bold text-orange-400">{analytics?.wishlistCount}</div>
                   <div className="text-white/70 text-xs mt-1">📚 Wishlist</div>
                   <div className="text-orange-400 text-xs mt-1">100 pts chacun</div>
                 </div>
@@ -256,7 +256,7 @@ export default function PuzzleAnalyticsModal({ open, onClose, puzzle }) {
                   <div>
                     <div className="text-white/70 text-sm">Total votes: {analytics?.totalInteractions}</div>
                     <div className="text-white/70 text-sm mt-1">
-                      Formule: (({analytics?.likesCount} × 75) + ({analytics?.wishlist_count} × 100)) / {analytics?.totalInteractions}
+                      Formule: (({analytics?.likesCount} × 75) + ({analytics?.wishlistCount} × 100)) / {analytics?.totalInteractions}
                     </div>
                   </div>
                   <div className="text-right">

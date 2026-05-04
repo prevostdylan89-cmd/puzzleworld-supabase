@@ -185,7 +185,7 @@ export default function CommentSection({ post, user, onCommentAdded }) {
                 disabled={isSubmitting}
               />
               <Button 
-                type="submit"
+                type="button" onClick={handleSubmit}
                 size="icon"
                 disabled={isSubmitting || !newComment.trim()}
                 className="bg-orange-500 hover:bg-orange-600 text-white"
