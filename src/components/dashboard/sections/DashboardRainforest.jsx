@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
-import { Key, RefreshCw, AlertTriangle, CheckCircle, Loader2, Eye, EyeOff, Zap, BarChart3, Clock, DollarSign } from 'lucide-react';
+import { Key, RefreshCw, AlertTriangle, CheckCircle, Loader2, Eye, EyeOff, Zap, BarChart3, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,16 +12,16 @@ export default function DashboardRainforest() {
   const [apiKey, setApiKey] = useState('');
   const [newApiKey, setNewApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [credits, setCredits] = useState(null);
-  const [loadingCredits, setLoadingCredits] = useState(false);
+  const [testResult, setTestResult] = useState(null); // null | 'ok' | 'error'
+  const [loadingTest, setLoadingTest] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
+  const [manualCredits, setManualCredits] = useState(null);
 
   useEffect(() => {
     loadSettings();
   }, []);
 
-  // Charge la clé API depuis Supabase (table page_settings)
   const loadSettings = async () => {
     try {
       const { data } = await supabase
@@ -29,73 +29,56 @@ export default function DashboardRainforest() {
         .select('settings')
         .eq('page_name', SETTINGS_KEY)
         .limit(1);
-
-      if (data && data.length > 0 && data[0].settings?.api_key) {
-        setApiKey(data[0].settings.api_key);
-        // Charger les crédits automatiquement
-        fetchCredits(data[0].settings.api_key);
+      if (data && data.length > 0) {
+        const s = data[0].settings || {};
+        if (s.api_key) setApiKey(s.api_key);
+        if (s.credits_remaining !== undefined) setManualCredits(s.credits_remaining);
+        if (s.last_checked) setLastChecked(new Date(s.last_checked));
       }
-    } catch (e) {
-      console.error('Erreur chargement settings:', e);
-    }
+    } catch (e) {}
   };
 
-  // Récupère les infos de compte Rainforest API
-  const fetchCredits = async (key = apiKey) => {
-    if (!key) {
-      toast.error('Aucune clé API configurée');
-      return;
-    }
-    setLoadingCredits(true);
+  // Teste la clé en faisant une vraie requête de recherche légère
+  const testApiKey = async (key = apiKey) => {
+    if (!key) { toast.error('Aucune clé API configurée'); return; }
+    setLoadingTest(true);
+    setTestResult(null);
     try {
       const response = await fetch(
-        `https://api.rainforestapi.com/account?api_key=${key}`
+        `https://api.rainforestapi.com/request?api_key=${key}&type=search&amazon_domain=amazon.fr&search_term=puzzle&page=1`
       );
-      let data = {};
-      try { data = await response.json(); } catch(e) {}
-
-      if (data.account_info) {
-        setCredits(data.account_info);
+      if (response.ok || response.status === 200) {
+        setTestResult('ok');
         setLastChecked(new Date());
+        toast.success('✅ Clé API valide et fonctionnelle !');
+      } else if (response.status === 401) {
+        setTestResult('error');
+        toast.error('❌ Clé API invalide');
       } else if (response.status === 402) {
-        // Crédits épuisés - clé valide mais quota dépassé
-        setCredits({ credits_remaining: 0, credits_used: 0, credits_quota: 0, plan: 'Épuisé' });
-        setLastChecked(new Date());
-        toast.error('⚠️ Crédits épuisés sur ce compte Rainforest');
-      } else if (data.request_info?.success === false) {
-        toast.error('Clé API invalide ou expirée');
-        setCredits(null);
+        setTestResult('error');
+        toast.error('⚠️ Crédits épuisés sur ce compte');
+      } else {
+        setTestResult('error');
+        toast.error(`Erreur ${response.status}`);
       }
     } catch (e) {
+      setTestResult('error');
       toast.error('Impossible de contacter Rainforest API');
     } finally {
-      setLoadingCredits(false);
+      setLoadingTest(false);
     }
   };
 
-  // Sauvegarde la nouvelle clé API dans Supabase
   const saveApiKey = async () => {
-    if (!newApiKey.trim()) {
-      toast.error('Entre une clé API valide');
-      return;
-    }
+    if (!newApiKey.trim()) { toast.error('Entre une clé API'); return; }
     setSavingKey(true);
     try {
-      // Vérifier la clé avant de sauvegarder
-      const response = await fetch(
-        `https://api.rainforestapi.com/account?api_key=${newApiKey.trim()}`
-      );
-      const data = await response.json();
+      const settings = {
+        api_key: newApiKey.trim(),
+        credits_remaining: manualCredits,
+        last_checked: new Date().toISOString(),
+      };
 
-      // 402 = crédits épuisés mais clé valide, on accepte quand même
-      // Seulement refuser si c'est une vraie erreur d'auth (401)
-      if (response.status === 401 || (response.status !== 200 && response.status !== 402)) {
-        toast.error('Cette clé API est invalide ou non reconnue');
-        setSavingKey(false);
-        return;
-      }
-
-      // Sauvegarder dans Supabase
       const { data: existing } = await supabase
         .from('page_settings')
         .select('id')
@@ -105,35 +88,46 @@ export default function DashboardRainforest() {
       if (existing && existing.length > 0) {
         await supabase
           .from('page_settings')
-          .update({ settings: { api_key: newApiKey.trim() }, updated_date: new Date().toISOString() })
+          .update({ settings, updated_date: new Date().toISOString() })
           .eq('page_name', SETTINGS_KEY);
       } else {
         await supabase
           .from('page_settings')
-          .insert([{ page_name: SETTINGS_KEY, settings: { api_key: newApiKey.trim() }, is_visible: true }]);
+          .insert([{ page_name: SETTINGS_KEY, settings, is_visible: true }]);
       }
 
       setApiKey(newApiKey.trim());
       setNewApiKey('');
-      setCredits(data.account_info);
-      setLastChecked(new Date());
-      toast.success('✅ Clé API mise à jour avec succès !');
+      toast.success('✅ Clé API sauvegardée !');
+      // Tester la nouvelle clé
+      await testApiKey(newApiKey.trim());
     } catch (e) {
-      toast.error('Erreur lors de la sauvegarde');
+      toast.error('Erreur lors de la sauvegarde : ' + e.message);
     } finally {
       setSavingKey(false);
     }
   };
 
-  const creditPercent = credits
-    ? Math.round((credits.credits_remaining / credits.credits_quota) * 100)
-    : 0;
+  const saveCredits = async (credits) => {
+    try {
+      const { data: existing } = await supabase
+        .from('page_settings')
+        .select('id, settings')
+        .eq('page_name', SETTINGS_KEY)
+        .limit(1);
 
-  const creditColor = creditPercent > 50
-    ? 'text-green-400'
-    : creditPercent > 20
-    ? 'text-yellow-400'
-    : 'text-red-400';
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('page_settings')
+          .update({
+            settings: { ...existing[0].settings, credits_remaining: parseInt(credits) },
+            updated_date: new Date().toISOString()
+          })
+          .eq('page_name', SETTINGS_KEY);
+        toast.success('Crédits mis à jour');
+      }
+    } catch (e) {}
+  };
 
   return (
     <div className="space-y-6">
@@ -142,49 +136,30 @@ export default function DashboardRainforest() {
         <p className="text-white/50 text-sm">Gestion de la clé API pour la recherche de puzzles Amazon</p>
       </div>
 
-      {/* Statut des crédits */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Statut */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="bg-white/[0.03] border-white/[0.06]">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-2">
               <Zap className="w-5 h-5 text-yellow-400" />
               <span className="text-white/60 text-sm">Crédits restants</span>
             </div>
-            {loadingCredits ? (
-              <Loader2 className="w-5 h-5 animate-spin text-white/40" />
-            ) : credits ? (
-              <div>
-                <p className={`text-2xl font-bold ${creditColor}`}>
-                  {credits.credits_remaining?.toLocaleString()}
-                </p>
-                <p className="text-white/40 text-xs">sur {credits.credits_quota?.toLocaleString()}</p>
-              </div>
-            ) : (
-              <p className="text-white/40 text-sm">—</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/[0.03] border-white/[0.06]">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3 mb-2">
-              <BarChart3 className="w-5 h-5 text-blue-400" />
-              <span className="text-white/60 text-sm">Crédits utilisés</span>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={manualCredits ?? ''}
+                onChange={e => setManualCredits(e.target.value)}
+                onBlur={e => saveCredits(e.target.value)}
+                placeholder="Ex: 100"
+                className="bg-white/5 border-white/20 text-white w-32 h-8 text-sm"
+              />
+              <span className="text-white/40 text-xs">crédits (à saisir manuellement)</span>
             </div>
-            {credits ? (
-              <div>
-                <p className="text-2xl font-bold text-white">
-                  {credits.credits_used?.toLocaleString()}
-                </p>
-                <div className="mt-2 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full transition-all"
-                    style={{ width: `${100 - creditPercent}%` }}
-                  />
-                </div>
+            {manualCredits !== null && parseInt(manualCredits) < 20 && (
+              <div className="flex items-center gap-2 mt-2 text-red-400 text-xs">
+                <AlertTriangle className="w-3 h-3" />
+                Crédits bas !
               </div>
-            ) : (
-              <p className="text-white/40 text-sm">—</p>
             )}
           </CardContent>
         </Card>
@@ -193,34 +168,33 @@ export default function DashboardRainforest() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-2">
               <Clock className="w-5 h-5 text-purple-400" />
-              <span className="text-white/60 text-sm">Dernière vérification</span>
+              <span className="text-white/60 text-sm">Statut de la clé</span>
             </div>
-            <p className="text-white text-sm">
-              {lastChecked
-                ? lastChecked.toLocaleTimeString('fr-FR')
-                : '—'}
-            </p>
+            {testResult === 'ok' && (
+              <div className="flex items-center gap-2 text-green-400">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm">Clé valide ✅</span>
+              </div>
+            )}
+            {testResult === 'error' && (
+              <div className="flex items-center gap-2 text-red-400">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-sm">Clé invalide ou crédits épuisés</span>
+              </div>
+            )}
+            {testResult === null && (
+              <p className="text-white/40 text-sm">Non testé</p>
+            )}
             {lastChecked && (
-              <p className="text-white/40 text-xs">
-                {lastChecked.toLocaleDateString('fr-FR')}
+              <p className="text-white/30 text-xs mt-1">
+                Testé le {lastChecked.toLocaleDateString('fr-FR')} à {lastChecked.toLocaleTimeString('fr-FR')}
               </p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Alerte si crédits bas */}
-      {credits && creditPercent < 20 && (
-        <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-          <div>
-            <p className="text-red-400 font-medium">Crédits presque épuisés !</p>
-            <p className="text-red-300/70 text-sm">Il reste seulement {creditPercent}% de tes crédits. Change la clé API ci-dessous.</p>
-          </div>
-        </div>
-      )}
-
-      {/* Clé API actuelle */}
+      {/* Clé actuelle */}
       <Card className="bg-white/[0.03] border-white/[0.06]">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
@@ -228,7 +202,7 @@ export default function DashboardRainforest() {
             Clé API actuelle
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <Input
@@ -245,27 +219,18 @@ export default function DashboardRainforest() {
               </button>
             </div>
             <Button
-              onClick={() => fetchCredits()}
-              disabled={loadingCredits || !apiKey}
+              onClick={() => testApiKey()}
+              disabled={loadingTest || !apiKey}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {loadingCredits
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <RefreshCw className="w-4 h-4" />
-              }
+              {loadingTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             </Button>
           </div>
-
-          {credits && (
-            <div className="flex items-center gap-2 text-green-400 text-sm">
-              <CheckCircle className="w-4 h-4" />
-              <span>Clé API valide — Plan : {credits.plan || 'Standard'}</span>
-            </div>
-          )}
+          <p className="text-white/30 text-xs">⚠️ Le test consomme 1 crédit Rainforest</p>
         </CardContent>
       </Card>
 
-      {/* Changer la clé API */}
+      {/* Nouvelle clé */}
       <Card className="bg-white/[0.03] border-white/[0.06]">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
@@ -275,12 +240,15 @@ export default function DashboardRainforest() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-white/50 text-sm">
-            Entre ta nouvelle clé API Rainforest. Elle sera vérifiée automatiquement avant d'être sauvegardée.
+            Entre ta nouvelle clé API Rainforest. Trouve-la sur{' '}
+            <a href="https://app.rainforestapi.com/account" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">
+              app.rainforestapi.com → Account → Plan & Payment
+            </a>
           </p>
           <div className="flex gap-2">
             <Input
               type="text"
-              placeholder="Nouvelle clé API Rainforest..."
+              placeholder="Nouvelle clé API..."
               value={newApiKey}
               onChange={e => setNewApiKey(e.target.value)}
               className="bg-white/5 border-white/20 text-white font-mono text-sm flex-1"
@@ -291,14 +259,11 @@ export default function DashboardRainforest() {
               className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap"
             >
               {savingKey
-                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Vérification...</>
+                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Sauvegarde...</>
                 : '✅ Sauvegarder'
               }
             </Button>
           </div>
-          <p className="text-white/30 text-xs">
-            💡 Trouve ta clé sur <a href="https://app.rainforestapi.com" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">app.rainforestapi.com</a> → Account → API Key
-          </p>
         </CardContent>
       </Card>
     </div>
