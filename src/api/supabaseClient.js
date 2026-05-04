@@ -131,3 +131,24 @@ export const base44 = {
 };
 
 export default supabase;
+
+// Ajouter functions à l'objet base44 existant
+base44.functions = {
+  invoke: async (functionName, payload = {}) => {
+    try {
+      // Essayer d'appeler une Supabase Edge Function si elle existe
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: payload,
+      });
+      if (error) {
+        console.warn(`Function ${functionName} not found, returning empty:`, error.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      // Si la fonction n'existe pas encore, retourner null silencieusement
+      console.warn(`Function ${functionName} not available:`, e.message);
+      return null;
+    }
+  }
+};
