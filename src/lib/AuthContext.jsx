@@ -17,11 +17,16 @@ export const AuthProvider = ({ children }) => {
   const enrichUserWithProfile = async (supabaseUser) => {
     const base = enrichUser(supabaseUser);
     try {
-      const { data: profiles } = await supabase
+      // Timeout de 3 secondes pour éviter un blocage infini
+      const profilePromise = supabase
         .from('user_profiles')
-        .select('display_name, avatar, bio, friend_code')
+        .select('display_name, avatar, friend_code')
         .eq('created_by', supabaseUser.email)
         .limit(1);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 3000)
+      );
+      const { data: profiles } = await Promise.race([profilePromise, timeoutPromise]);
       if (profiles && profiles.length > 0 && profiles[0].display_name) {
         return {
           ...base,
@@ -31,7 +36,10 @@ export const AuthProvider = ({ children }) => {
           friend_code: profiles[0].friend_code,
         };
       }
-    } catch (e) {}
+    } catch (e) {
+      // En cas d'erreur ou timeout, on retourne le profil de base
+      console.warn('Profile fetch failed, using base user:', e.message);
+    }
     return base;
   };
 
