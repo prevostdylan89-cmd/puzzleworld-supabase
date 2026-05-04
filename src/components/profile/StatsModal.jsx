@@ -3,7 +3,7 @@ import WishlistPuzzleModal from '@/components/profile/WishlistPuzzleModal';
 import { motion } from 'framer-motion';
 import { X, Calendar, Package, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { enUS } from 'date-fns/locale';

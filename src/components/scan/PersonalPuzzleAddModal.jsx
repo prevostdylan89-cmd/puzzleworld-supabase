@@ -4,7 +4,7 @@ import { X, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 export default function PersonalPuzzleAddModal({ open, onClose, onAdded }) {

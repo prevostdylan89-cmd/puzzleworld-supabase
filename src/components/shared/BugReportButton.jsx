@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { getCapturedLogs } from '@/lib/consoleCapture';
 import { TriangleAlert, X, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Modal only — no floating button. Use BugReportTrigger or open prop.

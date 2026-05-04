@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Puzzle, Loader2, X, ArrowUpDown } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import CommunityPuzzleCard from '@/components/collection/CommunityPuzzleCard';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';

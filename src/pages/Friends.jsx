@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { useLanguage } from '@/components/LanguageContext';
 import { Users, UserPlus, UserCheck, UserX, Loader2, Search, MessageCircle, Send, ArrowLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';

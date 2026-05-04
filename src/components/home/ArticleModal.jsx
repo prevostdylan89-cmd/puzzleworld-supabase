@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, X, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 
 export default function ArticleModal({ open, onClose, article, articleId }) {
   const navigate = useNavigate();

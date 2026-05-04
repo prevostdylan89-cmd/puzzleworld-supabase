@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '@/components/LanguageContext';
 import { Trash2, ArrowUpDown, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import WishlistPuzzleModal from '@/components/profile/WishlistPuzzleModal';
 import AddSpeedRecordInline from '@/components/profile/AddSpeedRecordInline';

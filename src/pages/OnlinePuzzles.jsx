@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OnlineGameCard from '@/components/shared/OnlineGameCard';
 import SectionHeader from '@/components/shared/SectionHeader';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 
 const defaultGames = [
   {

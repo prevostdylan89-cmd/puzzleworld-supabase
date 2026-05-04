@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Loader2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { useLanguage } from '@/components/LanguageContext';
 import EventCard from '@/components/events/EventCard';
 import EventModal from '@/components/events/EventModal';

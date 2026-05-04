@@ -4,7 +4,7 @@ import { X, Upload, Loader2, Calendar, MapPin, Users, Image as ImageIcon } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 export default function EventForm({ event, onClose, onSave }) {

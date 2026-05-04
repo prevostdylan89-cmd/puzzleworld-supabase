@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { MobileSelect } from '@/components/ui/mobile-select';
 import { SelectItem } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 function useDynamicCategories() {

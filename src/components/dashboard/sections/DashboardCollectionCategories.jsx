@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { Loader2, Plus, Pencil, Trash2, GripVertical, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';

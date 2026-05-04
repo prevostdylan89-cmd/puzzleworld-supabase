@@ -11,7 +11,7 @@ import ScanPuzzleModal from '@/components/scan/ScanPuzzleModal';
 import EventModal from '@/components/events/EventModal';
 import PuzzleDetailModal from '@/components/collection/PuzzleDetailModal';
 import ArticleModal from '@/components/home/ArticleModal';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 
 const container = {
   hidden: { opacity: 0 },

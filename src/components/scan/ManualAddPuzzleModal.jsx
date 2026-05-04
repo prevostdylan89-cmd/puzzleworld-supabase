@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { MobileSelect } from '@/components/ui/mobile-select';
 import { SelectItem } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 const CATEGORIES = ['Nature', 'Urbain', 'Disney', 'Art', 'Animaux', 'Monochrome', 'Vintage', 'Autre'];

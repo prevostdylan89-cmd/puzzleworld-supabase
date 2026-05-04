@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { Sparkles, Loader2, RefreshCw, MoreVertical, X, Plus, ChevronDown, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import PuzzleDetailModal from '@/components/collection/PuzzleDetailModal';

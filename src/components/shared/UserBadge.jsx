@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Star, Crown, Sparkles, Flame, Award } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 
 const BADGE_CONFIG = {
   'Novice': { icon: Star, color: 'text-gray-400', bg: 'bg-gray-400/20', threshold: 0 },

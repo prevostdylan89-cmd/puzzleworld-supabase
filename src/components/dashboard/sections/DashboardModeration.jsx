@@ -1,5 +1,5 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { Shield } from 'lucide-react';
 
 const WHATSAPP_URL = base44.agents.getWhatsAppConnectURL('content_moderator');

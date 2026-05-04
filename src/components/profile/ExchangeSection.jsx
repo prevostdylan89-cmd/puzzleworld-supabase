@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { ShoppingBag, Loader2, Puzzle, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {

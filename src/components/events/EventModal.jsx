@@ -6,7 +6,7 @@ import { fr } from 'date-fns/locale';
 import { enUS } from 'date-fns/locale';
 import { useLanguage } from '@/components/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 export default function EventModal({ event, onClose, onRegistrationChange }) {

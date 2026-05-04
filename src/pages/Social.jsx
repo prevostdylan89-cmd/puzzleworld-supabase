@@ -4,7 +4,7 @@ import { useLanguage } from '@/components/LanguageContext';
 import { Flame, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { useAuth } from '@/lib/AuthContext';
 import CreatePostForm from '@/components/social/CreatePostForm';
 import PostCard from '@/components/social/PostCard';

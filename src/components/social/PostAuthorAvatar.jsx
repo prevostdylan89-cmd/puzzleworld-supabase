@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 
 export default function PostAuthorAvatar({ authorEmail, authorName, authorInitials }) {
   const [profilePhoto, setProfilePhoto] = useState(null);

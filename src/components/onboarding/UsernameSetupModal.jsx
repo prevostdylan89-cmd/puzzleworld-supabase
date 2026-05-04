@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Puzzle, Loader2, Check, X, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 // Liste de mots interdits basique (complétée par l'IA)

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { Loader2, Check, X, Crop } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

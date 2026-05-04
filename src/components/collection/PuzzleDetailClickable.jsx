@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { X, ExternalLink, Heart, Bookmark, BookmarkCheck, Package, Star, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 export default function PuzzleDetailClickable({ puzzleReference, onClose }) {

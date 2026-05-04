@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Star, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function CompletedPuzzlesSection({ user }) {

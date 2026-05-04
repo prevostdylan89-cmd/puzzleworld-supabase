@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { base44 } from '@/api/base44Client';
+import { base44 } from '@/api/supabaseClient';
 import {
   GripVertical, Plus, Trash2, Type, Image as ImageIcon,
   List, Link, Quote, Minus, Upload, Loader2, Search, AlignLeft, Grid3X3, Crop
