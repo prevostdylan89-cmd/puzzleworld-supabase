@@ -215,5 +215,35 @@ export const UserProfile         = createEntity('user_profiles',         { owned
 export const UserPuzzle          = createEntity('user_puzzles',          { ownedByUser: true });
 export const UserPuzzleLike      = createEntity('user_puzzle_likes',     { ownedByUser: true });
 export const UserSeenPuzzle      = createEntity('user_seen_puzzles',     { ownedByUser: true });
-export const Wishlist            = createEntity('wishlists',             { ownedByUser: true });
-export const WishlistAggregate   = createEntity('wishlist_aggregates');
+
+// ─── Ajouter subscribe() à toutes les entités via Supabase Realtime ──────────
+function addSubscribeToEntity(entity) {
+  entity.subscribe = (callback) => {
+    const channel = supabase
+      .channel(`realtime_${entity.tableName}_${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: entity.tableName },
+        (payload) => {
+          callback({
+            type: payload.eventType,
+            data: payload.new || payload.old,
+            old: payload.old,
+          });
+        }
+      )
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  };
+  return entity;
+}
+
+[
+  Achievement, Badge, BlogArticle, BlogCategory, BugReport, Comment,
+  CompletedPuzzle, DirectMessage, Event, EventParticipant, FeaturedArticle,
+  FeaturedEvent, FeaturedPuzzle, Follow, Friendship, Like, OnlineGame,
+  PageSettings, PersonalPuzzle, Post, PuzzleCatalog, PuzzleTimer, SpeedRecord,
+  SwipeInteraction, TrendMetric, User, UserBadge, UserCategory, UserDNA,
+  UserLevel, UserProfile, UserPuzzle, UserPuzzleLike, UserSeenPuzzle,
+  Wishlist, WishlistAggregate
+].forEach(addSubscribeToEntity);
