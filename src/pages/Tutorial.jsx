@@ -16,7 +16,7 @@ const slides = [
         {/* Simulated header */}
         <div className="absolute top-0 left-0 right-0 h-10 bg-[#000019]/90 flex items-center px-3 gap-2">
           <div className="w-6 h-6 rounded-md overflow-hidden">
-            <img src="https://media.base44.com/images/public/69637ed7a7bc12860b6763ca/4bbfd7a69_JUSTELAPIECE.png" className="w-full h-full object-contain" alt="logo" />
+            <img src="/logo.png" className="w-full h-full object-contain" alt="logo" />
           </div>
           <span className="text-white text-[10px] font-bold">PuzzleWorld</span>
         </div>
@@ -184,7 +184,7 @@ export default function Tutorial() {
       {/* Logo top */}
       <div className="flex items-center gap-2 mb-3 flex-shrink-0">
         <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
-          <img src="https://media.base44.com/images/public/69637ed7a7bc12860b6763ca/4bbfd7a69_JUSTELAPIECE.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
+          <img src="/logo.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
         </div>
         <span className="text-white font-bold text-base">PuzzleWorld</span>
       </div>

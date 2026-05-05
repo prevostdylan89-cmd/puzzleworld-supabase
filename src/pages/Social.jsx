@@ -60,17 +60,22 @@ export default function Social() {
 
     try {
       if (isGuest) {
-        const sortBy = activeTab === 'trending' ? '-likes_count' : '-created_date';
-        const res = await base44.functions.invoke('publicData', { type: 'posts', sort: sortBy, limit: 10 });
-        setPosts(res.data.data || []);
+        const { supabase } = await import('@/api/supabaseClient');
+        const sortColumn = activeTab === 'trending' ? 'likes_count' : 'created_date';
+        const { data } = await supabase
+          .from('posts')
+          .select('*')
+          .order(sortColumn, { ascending: false })
+          .limit(10);
+        setPosts(data || []);
         setHasMore(false);
         return;
       }
 
       if (activeTab === 'following') {
         if (!user) { setIsLoading(false); return; }
-        const follows = await base44.entities.Follow.filter({ follower_email: user.email });
-        const followingEmails = follows.map(f => f.following_email);
+        const follows = await base44.entities.Follow.filter({ created_by: user.email });
+        const followingEmails = follows.map(f => f.following);
         if (followingEmails.length === 0) {
           setPosts([]);
           setHasMore(false);
@@ -154,7 +159,7 @@ export default function Social() {
             >
               <p className="text-white/70 text-sm">🔒 Connectez-vous pour publier dans la communauté</p>
               <Button
-                onClick={() => base44.auth.redirectToLogin(window.location.href)}
+                onClick={() => window.location.href = '/login'}
                 size="sm"
                 className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-full flex-shrink-0"
               >
@@ -199,7 +204,7 @@ export default function Social() {
                       <p className="text-white font-semibold">🔓 Voir tous les posts de la communauté</p>
                       <p className="text-white/50 text-sm">Créez un compte gratuit pour accéder à l'intégralité du fil, publier et interagir.</p>
                       <Button
-                        onClick={() => base44.auth.redirectToLogin(window.location.href)}
+                        onClick={() => window.location.href = '/login'}
                         className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-full px-6"
                       >
                         Se connecter / Créer un compte

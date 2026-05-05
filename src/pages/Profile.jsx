@@ -124,12 +124,6 @@ export default function Profile() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
 
-      // Sync user profile to UserProfile entity
-      await base44.functions.invoke('syncUserProfile', {});
-      
-      // Update user level based on scanned puzzles
-      await base44.functions.invoke('updateUserLevelFromScans', { userEmail: currentUser.email });
-      
       // Load stats
       const [completedPuzzles, userAchievements, oldWishlist, userPuzzleWishlist, followers, following, allUserPuzzles] = await Promise.all([
         base44.entities.UserPuzzle.filter({ created_by: currentUser.email, status: 'done' }),
@@ -137,7 +131,7 @@ export default function Profile() {
         base44.entities.Wishlist.filter({ created_by: currentUser.email }),
         base44.entities.UserPuzzle.filter({ created_by: currentUser.email, status: 'wishlist' }),
         base44.entities.Follow.filter({ following: currentUser.email }),
-        base44.entities.Follow.filter({ follower_email: currentUser.email }),
+        base44.entities.Follow.filter({ created_by: currentUser.email }),
         base44.entities.UserPuzzle.filter({ created_by: currentUser.email })
       ]);
       // Dedup wishlist by puzzle_name
@@ -208,7 +202,7 @@ export default function Profile() {
             {isGuest ? 'Créez un compte pour accéder à votre profil, suivre vos puzzles et bien plus encore !' : t('logInToViewProfile')}
           </p>
           <Button 
-            onClick={() => base44.auth.redirectToLogin()}
+            onClick={() => window.location.href = '/login'}
             className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl"
           >
             <LogIn className="w-4 h-4 mr-2" />
@@ -335,7 +329,7 @@ export default function Profile() {
                   )}
                 </div>
                 <Button 
-                  onClick={() => base44.auth.logout()}
+                  onClick={() => { base44.auth.logout(); window.location.href = '/login'; }}
                   variant="outline" 
                   className="border-white/20 text-white bg-transparent hover:bg-white/5 w-fit"
                 >

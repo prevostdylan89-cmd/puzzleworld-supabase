@@ -60,7 +60,7 @@ export default function DeleteAccountSection() {
       }
 
       // Delete follows
-      const userFollows = await base44.entities.Follow.filter({ follower_email: userEmail });
+      const userFollows = await base44.entities.Follow.filter({ created_by: userEmail });
       const userFollowing = await base44.entities.Follow.filter({ following: userEmail });
       for (const follow of [...userFollows, ...userFollowing]) {
         await base44.entities.Follow.delete(follow.id);
@@ -88,7 +88,7 @@ export default function DeleteAccountSection() {
       
       // Logout and redirect
       setTimeout(() => {
-        base44.auth.logout('/');
+        base44.auth.logout(); window.location.href = '/';
       }, 1000);
     } catch (error) {
       console.error('Error deleting account:', error);

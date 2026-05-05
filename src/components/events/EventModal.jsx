@@ -45,7 +45,7 @@ export default function EventModal({ event, onClose, onRegistrationChange }) {
   const handleRegister = async () => {
     if (!user) {
       toast.error(t('loginToRegister'));
-      base44.auth.redirectToLogin();
+      window.location.href = '/login';
       return;
     }
 

@@ -123,7 +123,7 @@ export default function Friends() {
   };
 
   const sendMessage = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     if (!newMessage.trim() || !selectedFriend || !user) return;
     const conversationId = [user.email, selectedFriend.email].sort().join('_');
     await base44.entities.DirectMessage.create({
@@ -144,6 +144,7 @@ export default function Friends() {
       requester_email: user.email,
       requester_name: user.full_name || user.email,
       friend_email: targetUser.email,
+      addressee_email: targetUser.email,
       addressee_name: targetUser.display_name || targetUser.full_name || targetUser.email,
       status: 'pending'
     });
@@ -335,9 +336,10 @@ export default function Friends() {
                         <div className="flex gap-2">
                           <Input placeholder="Message..." value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(e)}
                             className="bg-white/5 border-white/20 text-white flex-1"
                             style={{ fontSize: '16px' }} />
-                          <Button type="submit" size="icon" className="bg-orange-500 hover:bg-orange-600 flex-shrink-0 w-11 h-11" disabled={!newMessage.trim()}>
+                          <Button type="button" onClick={sendMessage} size="icon" className="bg-orange-500 hover:bg-orange-600 flex-shrink-0 w-11 h-11" disabled={!newMessage.trim()}>
                             <Send className="w-4 h-4" />
                           </Button>
                         </div>
@@ -405,8 +407,9 @@ export default function Friends() {
                         <div className="flex gap-2">
                           <Input placeholder={t('writeMessage')} value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(e)}
                             className="bg-white/5 border-white/20 text-white" />
-                          <Button type="submit" className="bg-orange-500 hover:bg-orange-600" disabled={!newMessage.trim()}>
+                          <Button type="button" onClick={sendMessage} className="bg-orange-500 hover:bg-orange-600" disabled={!newMessage.trim()}>
                             <Send className="w-4 h-4" />
                           </Button>
                         </div>

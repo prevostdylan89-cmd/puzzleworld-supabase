@@ -31,7 +31,7 @@ function createEntity(tableName, { ownedByUser = false, userField = 'created_by'
   return {
     tableName,
 
-    async list(orderStr, limit) {
+    async list(orderStr, limit, offset) {
       let q = supabase.from(tableName).select('*');
       if (ownedByUser) {
         const user = await currentUser();
@@ -40,6 +40,7 @@ function createEntity(tableName, { ownedByUser = false, userField = 'created_by'
       const ord = parseOrder(orderStr);
       if (ord) q = q.order(ord.column, { ascending: ord.ascending });
       if (limit) q = q.limit(limit);
+      if (offset) q = q.range(offset, offset + (limit || 50) - 1);
       return check(await q) || [];
     },
 
@@ -150,7 +151,7 @@ export const EventParticipant    = createEntity('event_participants',    { owned
 export const FeaturedArticle     = createEntity('featured_articles');
 export const FeaturedEvent       = createEntity('featured_events');
 export const FeaturedPuzzle      = createEntity('featured_puzzles');
-export const Follow              = createEntity('follows',               { ownedByUser: true, userField: 'follower_email' });
+export const Follow              = createEntity('follows',               { ownedByUser: true, userField: 'created_by' });
 export const Friendship          = createEntity('friendships',           { ownedByUser: true, userField: 'requester_email' });
 export const Like                = createEntity('likes',                 { ownedByUser: true });
 export const OnlineGame          = createEntity('online_games');

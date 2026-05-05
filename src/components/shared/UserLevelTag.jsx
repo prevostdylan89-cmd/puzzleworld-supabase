@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 
 const LEVELS = [
   { level: 1, threshold: 0,   emoji: '🌱' },
@@ -29,12 +29,12 @@ export default function UserLevelTag({ userEmail }) {
   useEffect(() => {
     if (!userEmail) return;
     Promise.all([
-      base44.entities.PuzzleCatalog.filter({ created_by: userEmail }),
-      base44.entities.User.filter({ email: userEmail })
+      supabase.from('puzzle_catalog').select('id', { count: 'exact', head: true }).eq('created_by', userEmail),
+      supabase.from('user_profiles').select('role').eq('created_by', userEmail).limit(1),
     ])
-      .then(([items, users]) => {
-        setLevelData(getLevel(items.length));
-        if (users.length > 0 && users[0].role === 'admin') setIsAdmin(true);
+      .then(([{ count }, { data: profiles }]) => {
+        setLevelData(getLevel(count || 0));
+        if (profiles?.[0]?.role === 'admin') setIsAdmin(true);
       })
       .catch(() => {});
   }, [userEmail]);

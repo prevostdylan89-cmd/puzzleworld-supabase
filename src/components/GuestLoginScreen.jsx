@@ -19,7 +19,7 @@ export default function GuestLoginScreen({ onContinueAsGuest }) {
       <div className="flex flex-col items-center mb-10">
         <div className="w-24 h-24 rounded-2xl overflow-hidden mb-4">
           <img
-            src="https://media.base44.com/images/public/69637ed7a7bc12860b6763ca/4bbfd7a69_JUSTELAPIECE.png"
+            src="/logo.png"
             alt="PuzzleWorld"
             className="w-full h-full object-contain"
           />
@@ -37,7 +37,7 @@ export default function GuestLoginScreen({ onContinueAsGuest }) {
 
         {/* Login button */}
         <Button
-          onClick={() => base44.auth.redirectToLogin(window.location.href)}
+          onClick={() => window.location.href = '/login'}
           className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-xl text-base"
         >
           Se connecter / Créer un compte

@@ -175,3 +175,17 @@ puzzleworld-supabase/
 ├── .env.example                ← template variables d'env
 └── vite.config.js              ← sans plugin base44
 ```
+
+---
+
+## 10. Migrations SQL supplémentaires (après la migration initiale)
+
+Si tu as déjà déployé le schéma initial (`supabase_schema.sql`), exécute également `supabase_fix.sql` dans le SQL Editor de Supabase pour ajouter les colonnes manquantes :
+
+```sql
+-- Ce fichier ajoute les colonnes manquantes pour la compatibilité:
+-- - friendships: requester_email, addressee_email, requester_name, addressee_name
+-- - follows: follower_email (alias de created_by)
+```
+
+Ces colonnes sont nécessaires pour que les fonctionnalités d'amis et de suivis fonctionnent correctement.

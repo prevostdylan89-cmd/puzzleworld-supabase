@@ -34,7 +34,9 @@ export default function DashboardPageVisibility() {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const existing = await base44.entities.PageSettings.list();
+      const { supabase } = await import('@/api/supabaseClient');
+      const { data: existingData } = await supabase.from('page_settings').select('*');
+      const existing = existingData || [];
       // Merge with default pages
       const merged = MANAGEABLE_PAGES.map(page => {
         const found = existing.find(s => s.page_name === page.page_name);
@@ -51,30 +53,45 @@ export default function DashboardPageVisibility() {
   const togglePage = async (pageName, currentValue) => {
     setSaving(prev => ({ ...prev, [pageName]: true }));
     try {
-      const existing = await base44.entities.PageSettings.filter({ page_name: pageName });
       const pageInfo = MANAGEABLE_PAGES.find(p => p.page_name === pageName);
       const setting = settings.find(s => s.page_name === pageName);
+      const newValue = !currentValue;
 
-      if (existing.length > 0) {
-        await base44.entities.PageSettings.update(existing[0].id, { 
-          is_active: !currentValue,
-          is_active: !currentValue,
-          settings: { ...(existing[0].settings || {}), label: pageInfo?.label, maintenance_message: setting?.maintenance_message }
-        });
+      // Chercher dans Supabase directement sans filtre created_by
+      const { supabase } = await import('@/api/supabaseClient');
+      const { data: existing } = await supabase
+        .from('page_settings')
+        .select('*')
+        .eq('page_name', pageName)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('page_settings')
+          .update({ 
+            is_active: newValue,
+            label: pageInfo?.label || pageName,
+            maintenance_message: setting?.maintenance_message || 'Cette page est temporairement en maintenance. Revenez bientôt !',
+            updated_date: new Date().toISOString()
+          })
+          .eq('id', existing[0].id);
       } else {
-        await base44.entities.PageSettings.create({
-          page_name: pageName,
-          label: pageInfo?.label || pageName,
-          is_active: !currentValue,
-          maintenance_message: setting?.maintenance_message || 'Cette page est temporairement en maintenance. Revenez bientôt !',
-        });
+        await supabase
+          .from('page_settings')
+          .insert([{
+            page_name: pageName,
+            label: pageInfo?.label || pageName,
+            is_active: newValue,
+            maintenance_message: setting?.maintenance_message || 'Cette page est temporairement en maintenance. Revenez bientôt !',
+          }]);
       }
 
       setSettings(prev => prev.map(s =>
-        s.page_name === pageName ? { ...s, is_active: !currentValue } : s
+        s.page_name === pageName ? { ...s, is_active: newValue } : s
       ));
-      toast.success(`Page "${pageInfo?.label}" ${!currentValue ? 'activée' : 'mise en maintenance'}`);
+      toast.success(`Page "${pageInfo?.label}" ${newValue ? 'activée' : 'mise en maintenance'}`);
     } catch (error) {
+      console.error(error);
       toast.error('Erreur lors de la mise à jour');
     } finally {
       setSaving(prev => ({ ...prev, [pageName]: false }));
@@ -90,19 +107,21 @@ export default function DashboardPageVisibility() {
   const saveMessage = async (pageName) => {
     setSaving(prev => ({ ...prev, [`msg_${pageName}`]: true }));
     try {
-      const existing = await base44.entities.PageSettings.filter({ page_name: pageName });
+      const { supabase: sb } = await import('@/api/supabaseClient');
       const setting = settings.find(s => s.page_name === pageName);
       const pageInfo = MANAGEABLE_PAGES.find(p => p.page_name === pageName);
+      const message = setting?.maintenance_message || '';
 
-      if (existing.length > 0) {
-        await base44.entities.PageSettings.update(existing[0].id, { settings: { ...(existing[0].settings || {}), maintenance_message: setting.settings?.maintenance_message || setting.maintenance_message } });
+      const { data: existing } = await sb.from('page_settings').select('id').eq('page_name', pageName).limit(1);
+      if (existing && existing.length > 0) {
+        await sb.from('page_settings').update({ maintenance_message: message, updated_date: new Date().toISOString() }).eq('id', existing[0].id);
       } else {
-        await base44.entities.PageSettings.create({
+        await sb.from('page_settings').insert([{
           page_name: pageName,
           label: pageInfo?.label || pageName,
           is_active: setting?.is_active ?? true,
-          settings: { ...(content?.settings || {}), maintenance_message: setting?.maintenance_message },
-        });
+          maintenance_message: message,
+        }]);
       }
       toast.success('Message mis à jour');
     } catch (error) {

@@ -85,3 +85,75 @@ ALTER TABLE puzzle_catalog ADD COLUMN IF NOT EXISTS wishlist_count NUMERIC DEFAU
 ALTER TABLE page_settings ADD COLUMN IF NOT EXISTS label TEXT;
 ALTER TABLE page_settings ADD COLUMN IF NOT EXISTS maintenance_message TEXT;
 ALTER TABLE page_settings ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+-- ============================================================
+-- Fix friendships table: add missing columns for compatibility
+-- ============================================================
+ALTER TABLE friendships 
+  ADD COLUMN IF NOT EXISTS requester_email TEXT,
+  ADD COLUMN IF NOT EXISTS addressee_email TEXT,
+  ADD COLUMN IF NOT EXISTS requester_name TEXT,
+  ADD COLUMN IF NOT EXISTS addressee_name TEXT;
+
+-- Migrate existing data: created_by → requester_email, friend_email → addressee_email
+UPDATE friendships 
+SET requester_email = created_by 
+WHERE requester_email IS NULL AND created_by IS NOT NULL;
+
+UPDATE friendships 
+SET addressee_email = friend_email 
+WHERE addressee_email IS NULL AND friend_email IS NOT NULL;
+
+-- Update RLS policy to also check requester_email/addressee_email
+DROP POLICY IF EXISTS "own or friend friendships" ON friendships;
+CREATE POLICY "own or friend friendships" ON friendships
+  USING (
+    created_by = auth.jwt() ->> 'email' 
+    OR friend_email = auth.jwt() ->> 'email'
+    OR requester_email = auth.jwt() ->> 'email'
+    OR addressee_email = auth.jwt() ->> 'email'
+  );
+
+-- ============================================================
+-- Fix follows table: add follower_email column (mirrors created_by)
+-- ============================================================
+ALTER TABLE follows 
+  ADD COLUMN IF NOT EXISTS follower_email TEXT;
+
+-- Migrate existing data
+UPDATE follows 
+SET follower_email = created_by 
+WHERE follower_email IS NULL AND created_by IS NOT NULL;
+
+-- Index for performance
+CREATE INDEX IF NOT EXISTS idx_follows_follower_email ON follows (follower_email);
+
+-- Update insert trigger to auto-populate follower_email
+CREATE OR REPLACE FUNCTION set_follower_email()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.follower_email IS NULL THEN
+    NEW.follower_email := NEW.created_by;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_follower_email ON follows;
+CREATE TRIGGER trg_set_follower_email
+  BEFORE INSERT ON follows
+  FOR EACH ROW EXECUTE FUNCTION set_follower_email();
+
+-- ============================================================  
+-- Fix wishlists table: add missing columns for code compatibility
+-- ============================================================
+ALTER TABLE wishlists 
+  ADD COLUMN IF NOT EXISTS puzzle_name TEXT,
+  ADD COLUMN IF NOT EXISTS puzzle_brand TEXT,
+  ADD COLUMN IF NOT EXISTS puzzle_pieces NUMERIC,
+  ADD COLUMN IF NOT EXISTS image TEXT,
+  ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium';
+
+-- Migrate title→puzzle_name if needed
+UPDATE wishlists SET puzzle_name = title WHERE puzzle_name IS NULL AND title IS NOT NULL;
+UPDATE wishlists SET image = image_url WHERE image IS NULL AND image_url IS NOT NULL;

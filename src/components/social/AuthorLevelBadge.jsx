@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 
 const BADGE_LEVELS = [
   { level: 1, icon: '🌱' },
@@ -16,20 +16,17 @@ const BADGE_LEVELS = [
 
 export default function AuthorLevelBadge({ userEmail }) {
   const [userLevel, setUserLevel] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userEmail) {
-      setLoading(false);
-      return;
-    }
-
+    if (!userEmail) return;
     const fetchUserLevel = async () => {
       try {
-        const response = await base44.functions.invoke('countUserScans', { userEmail });
-        const scansCount = response.data?.count || 0;
+        const { count } = await supabase
+          .from('puzzle_catalog')
+          .select('id', { count: 'exact', head: true })
+          .eq('created_by', userEmail);
 
-        // Determine level based on scans
+        const scansCount = count || 0;
         let level = 1;
         if (scansCount >= 400) level = 10;
         else if (scansCount >= 250) level = 9;
@@ -41,19 +38,13 @@ export default function AuthorLevelBadge({ userEmail }) {
         else if (scansCount >= 20) level = 3;
         else if (scansCount >= 10) level = 2;
 
-        const badge = BADGE_LEVELS.find(b => b.level === level);
-        setUserLevel(badge);
-      } catch (error) {
-        console.log('Error fetching user level:', error);
-      } finally {
-        setLoading(false);
-      }
+        setUserLevel(BADGE_LEVELS.find(b => b.level === level));
+      } catch {}
     };
-
     fetchUserLevel();
   }, [userEmail]);
 
-  if (loading || !userLevel) return null;
+  if (!userLevel) return null;
 
   return (
     <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-xs">

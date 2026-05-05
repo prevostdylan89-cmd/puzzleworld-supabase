@@ -173,17 +173,10 @@ export default function Blog() {
 
   const load = async () => {
     try {
-      let data, cats;
-      if (isGuest) {
-        const res = await base44.functions.invoke('publicData', { type: 'articles' });
-        data = res.data.data || [];
-        cats = res.data.categories || [];
-      } else {
-        [data, cats] = await Promise.all([
-          base44.entities.BlogArticle.filter({ is_published: true }, '-created_date'),
-          base44.entities.BlogCategory.list('order'),
-        ]);
-      }
+      const [data, cats] = await Promise.all([
+        base44.entities.BlogArticle.filter({ is_published: true }, '-created_date'),
+        base44.entities.BlogCategory.list('order'),
+      ]);
       setArticles(data);
       setCategories(cats);
     } catch {}

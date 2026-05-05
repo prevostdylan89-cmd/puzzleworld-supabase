@@ -56,7 +56,7 @@ function LayoutContent({ children, currentPageName }) {
   useEffect(() => {
     // Charger les page_settings depuis Supabase directement
     import('@/api/supabaseClient').then(({ supabase }) => {
-      supabase.from('page_settings').select('*')
+      supabase.from('page_settings').select('page_name, label, is_active, maintenance_message')
         .then(({ data }) => {
           if (data) setPageSettings(data);
         })
@@ -150,7 +150,7 @@ function LayoutContent({ children, currentPageName }) {
     }
   };
 
-  const handleLogout = () => { base44.auth.logout(); };
+  const handleLogout = async () => { await base44.auth.logout(); window.location.href = '/login'; };
 
   const userInitials = user?.full_name 
     ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -215,7 +215,7 @@ function LayoutContent({ children, currentPageName }) {
           {/* Logo */}
           <Link to={createPageUrl('Home')} className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-              <img src="https://media.base44.com/images/public/69637ed7a7bc12860b6763ca/4bbfd7a69_JUSTELAPIECE.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
+              <img src="/logo.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
               PuzzleWorld
@@ -365,7 +365,7 @@ function LayoutContent({ children, currentPageName }) {
 
           <Link to={createPageUrl('Home')} className="flex items-center gap-2">
             <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-              <img src="https://media.base44.com/images/public/69637ed7a7bc12860b6763ca/4bbfd7a69_JUSTELAPIECE.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
+              <img src="/logo.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
             </div>
             <span className="font-bold text-base">PuzzleWorld</span>
           </Link>
@@ -421,7 +421,7 @@ function LayoutContent({ children, currentPageName }) {
               <div className="p-4 border-b border-white/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                    <img src="https://media.base44.com/images/public/69637ed7a7bc12860b6763ca/4bbfd7a69_JUSTELAPIECE.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
+                    <img src="/logo.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
                   </div>
                   <div>
                     <h2 className="font-bold text-white">PuzzleWorld</h2>
@@ -592,7 +592,7 @@ function LayoutContent({ children, currentPageName }) {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src="https://media.base44.com/images/public/69637ed7a7bc12860b6763ca/4bbfd7a69_JUSTELAPIECE.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
+                  <img src="/logo.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
                 </div>
                 <span className="font-bold text-lg text-white">PuzzleWorld</span>
               </div>

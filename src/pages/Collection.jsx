@@ -193,8 +193,7 @@ export default function Collection() {
       try {
         let data;
         if (isGuest) {
-          const res = await base44.functions.invoke('publicData', { type: 'categories' });
-          data = res.data.data || [];
+          data = await base44.entities.PuzzleCategory.list('order', 100);
         } else {
           data = await base44.entities.PuzzleCategory.list('order', 100);
         }
@@ -277,10 +276,6 @@ export default function Collection() {
   const { data: globalPuzzles = [], isLoading, refetch } = useQuery({
     queryKey: ['globalPuzzles', isGuest],
     queryFn: async () => {
-      if (isGuest) {
-        const res = await base44.functions.invoke('publicData', { type: 'puzzles' });
-        return res.data.data || [];
-      }
       const puzzles = await base44.entities.PuzzleCatalog.filter({ status: 'active' }, '-created_date', 500);
       return puzzles;
     },

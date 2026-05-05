@@ -47,12 +47,7 @@ export default function Home() {
 
   const loadAllPublic = async () => {
     try {
-      const res = await base44.functions.invoke('publicData', { type: 'home' });
-      const d = res.data;
-      setTopPuzzles(d.topPuzzles || []);
-      setEvents(d.events || []);
-      setFeaturedArticles(d.featuredArticles || []);
-      setEventsInMaintenance(d.eventsInMaintenance || false);
+      await Promise.all([loadTopPuzzles(), loadEvents(), loadPageSettings(), loadFeaturedArticles()]);
     } catch (e) {
       console.error(e);
     } finally {

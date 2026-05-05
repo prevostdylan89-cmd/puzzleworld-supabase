@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { base44 } from '@/api/supabaseClient';
 import { CheckCircle2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 
@@ -25,12 +24,18 @@ export default function Contact() {
     setIsSubmitting(true);
 
     try {
-      await base44.functions.invoke('sendContactEmail', {
-        name: formData.name,
-        email: formData.email,
-        subject: formData.subject,
-        message: formData.message,
-      });
+      // Save contact message to Supabase (bug_reports table as type 'contact')
+      const { supabase } = await import('@/api/supabaseClient');
+      await supabase.from('bug_reports').insert([{
+        title: formData.subject,
+        description: `De: ${formData.name} <${formData.email}>\n\n${formData.message}`,
+        category: 'contact',
+        user_email: formData.email,
+        page: '/Contact',
+        status: 'nouveau',
+        priority: 'normale',
+        created_date: new Date().toISOString(),
+      }]);
       setFormData({ name: '', email: '', subject: '', message: '' });
       setShowSuccess(true);
     } catch (error) {

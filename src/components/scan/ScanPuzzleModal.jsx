@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { useScanCredits } from '@/hooks/useScanCredits';
+import { searchRainforest } from '@/api/rainforestApi';
 import {
   Dialog,
   DialogContent,
@@ -361,21 +362,41 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     try {
       let response;
       try {
-        response = await base44.functions.invoke('lookupPuzzleByEan', { ean: code });
-      } catch (axiosError) {
-        const errData = axiosError?.response?.data;
-        if (errData?.error === 'not_a_puzzle') {
-          setScanMessage({ type: 'error', text: '🚫 ' + errData.message });
+        // Use Rainforest API directly to look up puzzle by EAN/barcode
+        const rfData = await searchRainforest({
+          type: 'search',
+          amazon_domain: 'amazon.fr',
+          search_term: code,
+          output: 'json',
+        });
+
+        if (!rfData?.search_results?.length) {
+          setScanMessage({ type: 'error', text: '😕 Désolé, ce puzzle n\'est pas encore dans notre base. Ajoutez-le manuellement !' });
+          setActiveTab('manual');
           setLoading(false);
           return;
         }
-        if (errData?.error && (errData.error.includes('non trouvé') || errData.error.includes('introuvable') || axiosError?.response?.status === 404)) {
-          setScanMessage({ type: 'error', text: '😕 Désolé, ce puzzle n\'est pas encore dans notre base. Ajoutez-le manuellement !' });
-          setActiveTab('manual');
-        } else {
-          setScanMessage({ type: 'error', text: '😴 Désolé, notre scanner est fatigué ! Réessayez dans quelques secondes ou ajoutez manuellement.' });
-          setActiveTab('manual');
-        }
+
+        // Take first result and map to expected format
+        const item = rfData.search_results[0];
+        response = {
+          data: {
+            title: item.title,
+            brand: item.brand || item.manufacturer || '',
+            asin: item.asin,
+            image: item.image,
+            image_hd: item.image,
+            piece_count: null,  // Rainforest search doesn't return piece count
+            amazon_price: item.price?.value,
+            amazon_rating: item.rating,
+            ean: code,
+            source: 'rainforest_new',
+          }
+        };
+      } catch (axiosError) {
+        // If Rainforest API not configured, guide to manual
+        setScanMessage({ type: 'error', text: '😴 Désolé, notre scanner est fatigué ! Réessayez dans quelques secondes ou ajoutez manuellement.' });
+        setActiveTab('manual');
         setLoading(false);
         return;
       }
@@ -677,7 +698,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
             <h3 className="text-white font-bold text-lg">Fonctionnalité réservée aux membres</h3>
             <p className="text-white/50 text-sm">Créez un compte gratuit pour scanner et ajouter des puzzles à votre collection.</p>
             <Button
-              onClick={() => base44.auth.redirectToLogin(window.location.href)}
+              onClick={() => window.location.href = '/login'}
               className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl px-6"
             >
               Se connecter / Créer un compte

@@ -85,7 +85,7 @@ export default function PostCard({ post, user, isFeatured = false }) {
 
   const checkIfFollowing = async () => {
     if (!user || isOwnPost) return;
-    const follows = await base44.entities.Follow.filter({ follower_email: user.email,
+    const follows = await base44.entities.Follow.filter({ created_by: user.email,
       following: post.created_by
     });
     setIsFollowing(follows.length > 0);
@@ -254,7 +254,7 @@ export default function PostCard({ post, user, isFeatured = false }) {
 
     try {
       if (previousFollowing) {
-        const follows = await base44.entities.Follow.filter({ follower_email: user.email,
+        const follows = await base44.entities.Follow.filter({ created_by: user.email,
           following: post.created_by
         });
         if (follows.length > 0) {

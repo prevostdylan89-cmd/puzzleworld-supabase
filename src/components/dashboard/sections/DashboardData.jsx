@@ -88,12 +88,25 @@ export default function DashboardData() {
     setRestoreLoading(true);
     setRestoreResult(null);
     try {
-      const res = await base44.functions.invoke('restoreCatalogFromAsins', { dryRun, batchSize });
-      setRestoreResult(res.data);
-      if (!dryRun && res.data?.added > 0) {
-        toast.success(`${res.data.added} puzzles ajoutés au catalogue !`);
-        loadPuzzles();
-      }
+      // Analyse locale: compare user_seen_puzzles vs puzzle_catalog
+      const { supabase: sb } = await import('@/api/supabaseClient');
+      const [{ data: seen }, { data: catalog }] = await Promise.all([
+        sb.from('user_seen_puzzles').select('asin').not('asin', 'is', null),
+        sb.from('puzzle_catalog').select('asin').not('asin', 'is', null),
+      ]);
+      const seenAsins = new Set((seen || []).map(r => r.asin).filter(Boolean));
+      const catalogAsins = new Set((catalog || []).map(r => r.asin).filter(Boolean));
+      const missing = [...seenAsins].filter(a => !catalogAsins.has(a));
+      const data = {
+        dryRun: true,
+        totalSeen: seenAsins.size,
+        alreadyInCatalog: seenAsins.size - missing.length,
+        missing: missing.length,
+        added: 0,
+        missingAsins: missing.slice(0, 10),
+      };
+      setRestoreResult(data);
+      toast.info('Analyse locale effectuée. Pour importer, configurez la section Rainforest API.');
     } catch (err) {
       toast.error('Erreur: ' + err.message);
     } finally {

@@ -1,3 +1,14 @@
+-- Supprimer toutes les policies existantes
+DO $$ DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN (SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public') LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', r.policyname, r.schemaname, r.tablename);
+  END LOOP;
+END $$;
+
+-- Supprimer toutes les tables existantes
+DROP TABLE IF EXISTS wishlist_aggregates, wishlists, user_seen_puzzles, user_puzzle_likes, user_puzzles, user_profiles, user_levels, user_dna, user_categories, user_badges, users, trend_metrics, swipe_interactions, speed_records, puzzle_timers, puzzle_catalog, posts, personal_puzzles, page_settings, online_games, likes, friendships, follows, featured_puzzles, featured_events, featured_articles, event_participants, events, direct_messages, completed_puzzles, comments, bug_reports, blog_categories, blog_articles, badges, achievements CASCADE;
 -- ============================================================
 -- PuzzleWorld - Schéma SQL COMPLET v2
 -- Basé exactement sur les entités base44 originales

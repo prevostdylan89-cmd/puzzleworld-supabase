@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Modal only — no floating button. Use BugReportTrigger or open prop.
 export default function BugReportModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -28,23 +27,16 @@ export default function BugReportModal({ open, onClose }) {
         userEmail = user?.email || '';
       } catch {}
 
+      const consoleLogs = getCapturedLogs();
+
       await base44.entities.BugReport.create({
         ...form,
         page: window.location.pathname,
         user_email: userEmail,
         user_agent: navigator.userAgent,
+        console_logs: consoleLogs ? JSON.stringify(consoleLogs).slice(0, 2000) : '',
         status: 'nouveau',
         priority: 'normale',
-      });
-
-      const consoleLogs = getCapturedLogs();
-      await base44.functions.invoke('createGithubIssue', {
-        title: form.title,
-        description: form.description,
-        category: form.category,
-        page: window.location.pathname,
-        user_email: userEmail,
-        console_logs: consoleLogs,
       });
 
       setSent(true);
@@ -60,13 +52,8 @@ export default function BugReportModal({ open, onClose }) {
     <AnimatePresence>
       {open && (
         <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
-            onClick={handleClose}
-          />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]" onClick={handleClose} />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -100,51 +87,36 @@ export default function BugReportModal({ open, onClose }) {
                       { value: 'contenu', label: '📝 Contenu' },
                       { value: 'autre', label: '❓ Autre' },
                     ].map(c => (
-                      <button
-                        key={c.value}
-                        type="button"
+                      <button key={c.value} type="button"
                         onClick={() => setForm(f => ({ ...f, category: c.value }))}
                         className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          form.category === c.value
-                            ? 'bg-red-500 text-white'
-                            : 'bg-white/10 text-white/60 hover:bg-white/20'
-                        }`}
-                      >
+                          form.category === c.value ? 'bg-red-500 text-white' : 'bg-white/10 text-white/60 hover:bg-white/20'
+                        }`}>
                         {c.label}
                       </button>
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <label className="text-xs text-white/50 mb-1 block">Titre *</label>
-                  <input
-                    type="text"
-                    value={form.title}
+                  <input type="text" value={form.title}
                     onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                     placeholder="Résumé du problème..."
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-orange-500/50"
-                    required
-                  />
+                    required />
                 </div>
-
                 <div>
                   <label className="text-xs text-white/50 mb-1 block">Description *</label>
-                  <textarea
-                    value={form.description}
+                  <textarea value={form.description}
                     onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                     placeholder="Décrivez le problème en détail..."
                     rows={3}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-orange-500/50 resize-none"
-                    required
-                  />
+                    required />
                 </div>
-
-                <Button
-                  type="button" onClick={handleSubmit}
+                <Button type="button" onClick={handleSubmit}
                   disabled={loading || !form.title || !form.description}
-                  className="w-full bg-red-500 hover:bg-red-600 text-white rounded-xl"
-                >
+                  className="w-full bg-red-500 hover:bg-red-600 text-white rounded-xl">
                   {loading ? (
                     <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Envoi...</>
                   ) : (
