@@ -42,6 +42,16 @@ export default function PostCard({ post, user, isFeatured = false }) {
     if (!post.created_by) console.warn('PostCard: post.created_by is missing', post);
   }, [post.created_by]);
 
+  // Charger le profil de l'auteur (photo + pseudo)
+  useEffect(() => {
+    if (!post.created_by) return;
+    base44.entities.UserProfile.filter({ created_by: post.created_by })
+      .then(profiles => {
+        if (profiles.length > 0) setAuthorProfile(profiles[0]);
+      })
+      .catch(() => {});
+  }, [post.created_by]);
+
   const isOwnPost = user && post.created_by === user.email;
   const isCompletionPost = post.is_completion_post && post.puzzle_name && post.puzzle_reference;
   const showPuzzleActions = !isOwnPost && isCompletionPost && user;
@@ -458,10 +468,22 @@ export default function PostCard({ post, user, isFeatured = false }) {
       )}
       {/* Header */}
       <div className="p-4 flex items-start gap-3">
+        {/* Avatar auteur */}
+        <button onClick={() => setShowAuthorProfile(true)}>
+          <Avatar className="h-10 w-10 ring-2 ring-orange-500/20 cursor-pointer hover:ring-orange-500/40 transition-all flex-shrink-0">
+            {authorProfile?.profile_photo ? (
+              <img src={authorProfile.profile_photo} alt={post.author_name} className="w-full h-full object-cover" />
+            ) : (
+              <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white text-xs font-bold">
+                {(post.author_name || post.created_by || 'U').charAt(0).toUpperCase()}
+              </AvatarFallback>
+            )}
+          </Avatar>
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-white text-sm">
-              {authorProfile?.display_name || authorProfile?.full_name || post.author_name || post.created_by?.split('@')[0] || ''}
+              {authorProfile?.display_name || post.author_name || post.created_by?.split('@')[0] || ''}
             </span>
             <PostAuthorBadge userEmail={post.created_by} />
             {post.created_by && <AuthorLevelBadge userEmail={post.created_by} />}
