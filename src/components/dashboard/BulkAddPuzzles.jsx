@@ -12,7 +12,7 @@ const CATEGORIES = [
 const EMPTY_ROW = () => ({
   _id: Math.random(),
   title: "", brand: "", piece_count: "", category_tag: "",
-  price: "", asin: "", ean_code: "", amazon_url: "", image_url: "",
+  amazon_price: "", asin: "", ean: "", amazon_link: "", image_hd: "", description: "",
   status: null,
 });
 
@@ -21,11 +21,12 @@ const COLS = [
   { key: "brand",        label: "Marque",         width: 120 },
   { key: "piece_count",  label: "Pièces",         width: 75,  type: "number" },
   { key: "category_tag", label: "Catégorie",      width: 130, type: "select" },
-  { key: "price",        label: "Prix €",         width: 75,  type: "number" },
+  { key: "amazon_price", label: "Prix €",         width: 75,  type: "number" },
   { key: "asin",         label: "ASIN",           width: 125 },
-  { key: "ean_code",     label: "EAN-13",         width: 135 },
-  { key: "amazon_url",   label: "Lien Amazon",    width: 170 },
-  { key: "image_url",    label: "URL Image",      width: 170 },
+  { key: "ean",          label: "EAN-13",         width: 135 },
+  { key: "amazon_link",  label: "Lien Amazon",    width: 170 },
+  { key: "image_hd",     label: "URL Image",      width: 170 },
+  { key: "description",  label: "Description",    width: 170 },
 ];
 
 export default function BulkAddPuzzles({ onClose }) {
@@ -58,11 +59,12 @@ export default function BulkAddPuzzles({ onClose }) {
         brand:        cols[1] || "",
         piece_count:  cols[2] || "",
         category_tag: cols[3] || "",
-        price:        cols[4] || "",
+        amazon_price: cols[4] || "",
         asin:         cols[5] || "",
-        ean_code:     cols[6] || "",
-        amazon_url:   cols[7] || "",
-        image_url:    cols[8] || "",
+        ean:          cols[6] || "",
+        amazon_link:  cols[7] || "",
+        image_hd:     cols[8] || "",
+        description:  cols[9] || "",
       };
     });
     setRows(r => [...r.filter(row => row.title.trim()), ...newRows]);
@@ -88,12 +90,13 @@ export default function BulkAddPuzzles({ onClose }) {
         brand:        row.brand.trim() || null,
         piece_count:  row.piece_count ? parseInt(row.piece_count) : null,
         category_tag: row.category_tag || null,
-        price:        row.price ? parseFloat(row.price) : null,
+        amazon_price: row.amazon_price ? parseFloat(row.amazon_price) : null,
         asin:         row.asin.trim() || null,
-        ean_code:     row.ean_code.trim() || null,
-        amazon_url:   row.amazon_url.trim() || null,
-        image_url:    row.image_url.trim() || null,
-        is_approved:  true,
+        ean:          row.ean.trim() || null,
+        amazon_link:  row.amazon_link.trim() || null,
+        image_hd:     row.image_hd.trim() || null,
+        description:  row.description.trim() || null,
+        status:       'active',
       };
 
       const { error } = await supabase.from("puzzle_catalog").insert(payload);
