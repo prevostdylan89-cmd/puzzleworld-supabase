@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import PuzzleEditModal from '@/components/dashboard/PuzzleEditModal';
+import BulkAddPuzzles from '@/components/dashboard/BulkAddPuzzles';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,7 @@ export default function DashboardMyCollection() {
   const [deletingPuzzle, setDeletingPuzzle] = useState(null);
   const [editingPuzzle, setEditingPuzzle] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showBulkAdd, setShowBulkAdd] = useState(false);
 
   useEffect(() => {
     loadPuzzles();
@@ -110,14 +112,30 @@ export default function DashboardMyCollection() {
           <h2 className="text-3xl font-bold text-white mb-2">Collection Communautaire</h2>
           <p className="text-white/60">Gérez tous les puzzles de la plateforme</p>
         </div>
-        <Button
-          onClick={() => setEditingPuzzle(null) || setShowAddModal(true)}
-          className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Ajouter un puzzle
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowBulkAdd(v => !v)}
+            variant="outline"
+            className="border-white/20 text-white hover:bg-white/10 flex items-center gap-2"
+          >
+            <Grid3X3 className="w-4 h-4" />
+            Ajout rapide
+          </Button>
+          <Button
+            onClick={() => setEditingPuzzle(null) || setShowAddModal(true)}
+            className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Ajouter un puzzle
+          </Button>
+        </div>
       </div>
+
+      {showBulkAdd && (
+        <div className="mb-6 bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+          <BulkAddPuzzles onClose={() => { setShowBulkAdd(false); loadPuzzles(); }} />
+        </div>
+      )}
 
       <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl p-6">
         <div className="mb-6">
