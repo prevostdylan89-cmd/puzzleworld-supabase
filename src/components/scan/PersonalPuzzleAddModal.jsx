@@ -38,7 +38,7 @@ export default function PersonalPuzzleAddModal({ open, onClose, onAdded }) {
       await base44.entities.PersonalPuzzle.create({
         name: form.name || 'Puzzle personnalisé',
         piece_count: form.pieces ? parseInt(form.pieces) : null,
-        image: imageUrl || null,
+        image_url: imageUrl || null,
       });
 
       toast.success('✅ Puzzle ajouté à votre collection !');

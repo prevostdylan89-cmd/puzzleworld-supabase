@@ -39,10 +39,9 @@ export default function NavigationTracker() {
             pageName = matchedKey || null;
         }
 
+        // Navigation tracking désactivé (base44.appLogs supprimé)
         if (isAuthenticated && pageName) {
-            base44.appLogs.logUserInApp(pageName).catch(() => {
-                // Silently fail - logging shouldn't break the app
-            });
+            // noop
         }
     }, [location, isAuthenticated, Pages, mainPageKey]);
 

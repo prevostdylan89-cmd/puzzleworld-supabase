@@ -174,7 +174,7 @@ function AddPersonalPuzzleModal({ onClose, onSaved }) {
       await base44.entities.PersonalPuzzle.create({
         name: name.trim(),
         piece_count: pieceCount ? parseInt(pieceCount) : null,
-        image: imageUrl || null,
+        image_url: imageUrl || null,
       });
       toast.success('Puzzle personnel ajouté ! 🧩');
       onSaved();
