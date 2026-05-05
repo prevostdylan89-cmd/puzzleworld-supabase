@@ -143,6 +143,7 @@ function PersonalPuzzleCard({ puzzle, index, onUpdate }) {
 function AddPersonalPuzzleModal({ onClose, onSaved }) {
   const [name, setName] = useState('');
   const [pieceCount, setPieceCount] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -151,18 +152,18 @@ function AddPersonalPuzzleModal({ onClose, onSaved }) {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Affichage immédiat du preview local
-    const localPreview = URL.createObjectURL(file);
-    setImageUrl(localPreview);
+    setImagePreview(URL.createObjectURL(file));
+    setImageUrl('');
     setUploading(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       setImageUrl(file_url);
+      setImagePreview(file_url);
       toast.success('Image uploadée !');
     } catch (err) {
       console.error('Upload error:', err);
-      // Garder le preview local si l'upload échoue
-      toast.error('Upload échoué — vérifiez que le bucket "puzzle-images" est public dans Supabase');
+      setImagePreview('');
+      toast.error('Erreur upload — réessayez');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -172,6 +173,10 @@ function AddPersonalPuzzleModal({ onClose, onSaved }) {
   const handleSave = async () => {
     if (!name.trim()) {
       toast.error('Veuillez saisir un nom de puzzle');
+      return;
+    }
+    if (uploading) {
+      toast.error("Attendez la fin de l'upload");
       return;
     }
     setSaving(true);
@@ -221,8 +226,8 @@ function AddPersonalPuzzleModal({ onClose, onSaved }) {
           >
             {uploading ? (
               <Loader2 className="w-8 h-8 text-orange-400 animate-spin" />
-            ) : imageUrl ? (
-              <img src={imageUrl} alt="preview" className="w-full h-full object-cover" />
+            ) : imagePreview ? (
+              <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
             ) : (
               <div className="flex flex-col items-center gap-2 text-white/30">
                 <ImagePlus className="w-10 h-10" />

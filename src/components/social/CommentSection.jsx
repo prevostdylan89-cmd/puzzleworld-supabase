@@ -9,6 +9,13 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { useLanguage } from '@/components/LanguageContext';
 import UserProfileDialog from './UserProfileDialog';
+import AuthorLevelBadge from './AuthorLevelBadge';
+
+const BADGE_LEVELS = [
+  { level: 1, icon: '🌱' }, { level: 2, icon: '🔲' }, { level: 3, icon: '🔍' },
+  { level: 4, icon: '🧩' }, { level: 5, icon: '🎨' }, { level: 6, icon: '⚡' },
+  { level: 7, icon: '💎' }, { level: 8, icon: '🏆' }, { level: 9, icon: '✨' }, { level: 10, icon: '👑' },
+];
 
 function CommentItem({ comment, commentInitials, timeAgo }) {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -17,30 +24,24 @@ function CommentItem({ comment, commentInitials, timeAgo }) {
   const [displayName, setDisplayName] = useState(comment.author_name);
 
   useEffect(() => {
-    if (!comment.author_name) return;
-    
-    // Fetch profile photo by searching display_name with the pseudo (author_name)
-    const fetchPhoto = async () => {
+    if (!comment.created_by) return;
+
+    // Fetch profile by created_by (email) - plus fiable que par display_name
+    const fetchProfile = async () => {
       try {
-        // Search by display_name (the pseudo from the comment)
-        const profiles = await base44.entities.UserProfile.filter({ display_name: comment.author_name });
-        if (profiles.length > 0 && profiles[0].profile_photo) {
-          setProfilePhoto(profiles[0].profile_photo);
+        const profiles = await base44.entities.UserProfile.filter({ created_by: comment.created_by });
+        if (profiles.length > 0) {
+          if (profiles[0].profile_photo) setProfilePhoto(profiles[0].profile_photo);
+          if (profiles[0].display_name) setDisplayName(profiles[0].display_name);
+          if (profiles[0].role === 'admin') setIsAdmin(true);
         }
       } catch (error) {
-        console.error('Error fetching profile photo:', error);
+        console.error('Error fetching profile:', error);
       }
     };
 
-    fetchPhoto();
-    
-    // Check admin status
-    if (comment.created_by) {
-      base44.entities.User.filter({ email: comment.created_by })
-        .then(users => { if (users.length > 0 && users[0].role === 'admin') setIsAdmin(true); })
-        .catch(() => {});
-    }
-  }, [comment.author_name, comment.created_by]);
+    fetchProfile();
+  }, [comment.created_by]);
 
   return (
     <motion.div
@@ -71,6 +72,7 @@ function CommentItem({ comment, commentInitials, timeAgo }) {
         <div className="bg-white/5 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <p className="text-white/90 font-medium text-sm">{displayName}</p>
+            {comment.created_by && <AuthorLevelBadge userEmail={comment.created_by} />}
             {isAdmin && (
               <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-bold whitespace-nowrap">
                 👑 Admin
@@ -134,10 +136,19 @@ export default function CommentSection({ post, user, onCommentAdded }) {
 
     setIsSubmitting(true);
     try {
+      // Récupérer le pseudo (display_name) depuis UserProfile
+      let authorName = user.full_name || user.email;
+      try {
+        const profiles = await base44.entities.UserProfile.filter({ created_by: user.email });
+        if (profiles.length > 0 && profiles[0].display_name) {
+          authorName = profiles[0].display_name;
+        }
+      } catch {}
+
       const comment = await base44.entities.Comment.create({
         post_id: post.id,
         content: newComment.trim(),
-        author_name: user.full_name || user.email
+        author_name: authorName,
       });
 
       setComments([comment, ...comments]);

@@ -122,6 +122,18 @@ export default function Profile() {
   const loadUserData = async () => {
     try {
       const currentUser = await base44.auth.me();
+
+      // Enrichir avec les données de user_profiles (photo + bannière)
+      try {
+        const profiles = await base44.entities.UserProfile.filter({ created_by: currentUser.email });
+        if (profiles.length > 0) {
+          const p = profiles[0];
+          if (p.profile_photo) currentUser.profile_photo = p.profile_photo;
+          if (p.cover_photo) currentUser.cover_photo = p.cover_photo;
+          if (p.display_name) currentUser.display_name = p.display_name;
+        }
+      } catch {}
+
       setUser(currentUser);
 
       // Load stats

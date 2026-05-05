@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/api/supabaseClient';
+import { invalidateRainforestCache } from '@/api/rainforestApi';
 import { toast } from 'sonner';
 import { Key, RefreshCw, AlertTriangle, CheckCircle, Loader2, Eye, EyeOff, Zap, BarChart3, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,32 +39,57 @@ export default function DashboardRainforest() {
     } catch (e) {}
   };
 
-  // Teste la clé en faisant une vraie requête de recherche légère
+  // Teste la clé via la Edge Function Supabase (évite CORS)
   const testApiKey = async (key = apiKey) => {
     if (!key) { toast.error('Aucune clé API configurée'); return; }
     setLoadingTest(true);
     setTestResult(null);
     try {
-      const response = await fetch(
-        `https://api.rainforestapi.com/request?api_key=${key}&type=search&amazon_domain=amazon.fr&search_term=puzzle&page=1`
-      );
-      if (response.ok || response.status === 200) {
+      const { data, error } = await supabase.functions.invoke('rainforest-proxy', {
+        body: { type: 'search', amazon_domain: 'amazon.fr', search_term: 'puzzle', page: '1' },
+      });
+
+      if (error && error.message?.includes('non configurée')) {
+        setTestResult('error');
+        toast.error('❌ Clé non sauvegardée en base');
+      } else if (error) {
+        // La clé est en base mais l'edge function n'est pas déployée → essai direct
+        const response = await fetch(
+          `https://api.rainforestapi.com/request?api_key=${key}&type=search&amazon_domain=amazon.fr&search_term=puzzle&page=1`
+        );
+        if (response.ok) {
+          setTestResult('ok');
+          setLastChecked(new Date());
+          toast.success('✅ Clé API valide et fonctionnelle !');
+        } else if (response.status === 401) {
+          setTestResult('error');
+          toast.error('❌ Clé API invalide');
+        } else if (response.status === 402) {
+          setTestResult('error');
+          toast.error('⚠️ Crédits épuisés');
+        } else {
+          setTestResult('error');
+          toast.error(`Erreur ${response.status} — déploie la Edge Function pour éviter CORS`);
+        }
+      } else if (data?.request_info?.success === false) {
+        setTestResult('error');
+        toast.error('❌ Clé API invalide ou crédits épuisés');
+      } else {
         setTestResult('ok');
         setLastChecked(new Date());
-        toast.success('✅ Clé API valide et fonctionnelle !');
-      } else if (response.status === 401) {
-        setTestResult('error');
-        toast.error('❌ Clé API invalide');
-      } else if (response.status === 402) {
-        setTestResult('error');
-        toast.error('⚠️ Crédits épuisés sur ce compte');
-      } else {
-        setTestResult('error');
-        toast.error(`Erreur ${response.status}`);
+        // Lire les crédits restants si disponibles
+        if (data?.request_metadata?.credits_remaining !== undefined) {
+          const credits = data.request_metadata.credits_remaining;
+          setManualCredits(credits);
+          await saveCredits(credits);
+          toast.success(`✅ Clé valide — ${credits} crédits restants`);
+        } else {
+          toast.success('✅ Clé API valide et fonctionnelle !');
+        }
       }
     } catch (e) {
       setTestResult('error');
-      toast.error('Impossible de contacter Rainforest API');
+      toast.error('Impossible de tester la clé');
     } finally {
       setLoadingTest(false);
     }
@@ -98,6 +124,7 @@ export default function DashboardRainforest() {
 
       setApiKey(newApiKey.trim());
       setNewApiKey('');
+      invalidateRainforestCache(); // Vider le cache mémoire
       toast.success('✅ Clé API sauvegardée !');
       // Tester la nouvelle clé
       await testApiKey(newApiKey.trim());

@@ -1,6 +1,6 @@
 /**
  * rainforestApi.js
- * Utilitaire pour appeler Rainforest API avec la clé stockée dans Supabase
+ * Utilitaire pour appeler Rainforest API via la Supabase Edge Function (proxy CORS)
  */
 import { supabase } from './supabaseClient';
 
@@ -12,7 +12,6 @@ let cacheTime = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export async function getRainforestApiKey() {
-  // Retourner le cache si encore valide
   if (cachedApiKey && cacheTime && (Date.now() - cacheTime < CACHE_DURATION)) {
     return cachedApiKey;
   }
@@ -33,21 +32,35 @@ export async function getRainforestApiKey() {
   return null;
 }
 
-// Invalide le cache (utile après changement de clé)
 export function invalidateRainforestCache() {
   cachedApiKey = null;
   cacheTime = null;
 }
 
+/**
+ * Appel via Edge Function Supabase (contourne le blocage CORS de Rainforest)
+ * La clé API est lue directement côté serveur → plus sécurisé
+ */
 export async function searchRainforest(params) {
-  const apiKey = await getRainforestApiKey();
-  if (!apiKey) throw new Error('Clé Rainforest API non configurée');
-  
-  const url = new URL('https://api.rainforestapi.com/request');
-  url.searchParams.set('api_key', apiKey);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  
-  const response = await fetch(url.toString());
-  if (!response.ok) throw new Error(`Rainforest API error: ${response.status}`);
-  return response.json();
+  const { data, error } = await supabase.functions.invoke('rainforest-proxy', {
+    body: params,
+  });
+
+  if (error) {
+    // Fallback : essayer l'appel direct (marche en prod si CORS OK)
+    console.warn('Edge function failed, trying direct call:', error);
+    const apiKey = await getRainforestApiKey();
+    if (!apiKey) throw new Error('Clé Rainforest API non configurée');
+
+    const url = new URL('https://api.rainforestapi.com/request');
+    url.searchParams.set('api_key', apiKey);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error(`Rainforest API error: ${response.status}`);
+    return response.json();
+  }
+
+  if (data?.error) throw new Error(data.error);
+  return data;
 }

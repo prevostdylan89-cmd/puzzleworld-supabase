@@ -94,12 +94,15 @@ export default function EditProfileDialog({ user, onUpdate }) {
       
       if (userProfiles.length > 0) {
         await base44.entities.UserProfile.update(userProfiles[0].id, {
-          profile_photo: profilePhoto
+          profile_photo: profilePhoto,
+          cover_photo: coverPhoto,
         });
       } else {
         await base44.entities.UserProfile.create({
           email: currentUser.email,
-          profile_photo: profilePhoto
+          created_by: currentUser.email,
+          profile_photo: profilePhoto,
+          cover_photo: coverPhoto,
         });
       }
       
