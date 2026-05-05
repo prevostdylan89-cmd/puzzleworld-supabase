@@ -39,7 +39,7 @@ export default function AddSpeedRecordInline({ open, onClose, puzzle }) {
         puzzle_name: puzzle.puzzle_name,
         puzzle_brand: puzzle.puzzle_brand || '',
         puzzle_pieces: puzzle.puzzle_pieces,
-        image: puzzle.image_url || puzzle.progress_photo || '',
+        image_url: puzzle.image_url || puzzle.progress_photo || '',
         category_tag: puzzle.category_tag || '',
         hours: h,
         minutes: m,
@@ -52,7 +52,8 @@ export default function AddSpeedRecordInline({ open, onClose, puzzle }) {
       setHours(''); setMinutes(''); setSeconds(''); setNotes('');
       onClose();
     } catch (e) {
-      toast.error('Erreur lors de l\'ajout');
+      console.error('Erreur création record:', e);
+      toast.error('Erreur lors de l\'ajout du record');
     } finally {
       setLoading(false);
     }

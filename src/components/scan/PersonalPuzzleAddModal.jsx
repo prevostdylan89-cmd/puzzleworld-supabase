@@ -19,13 +19,17 @@ export default function PersonalPuzzleAddModal({ open, onClose, onAdded }) {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Preview local immédiat
+    const localPreview = URL.createObjectURL(file);
+    setImagePreview(localPreview);
     setUploading(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       setImageUrl(file_url);
       setImagePreview(file_url);
-    } catch {
-      toast.error("Erreur lors de l'upload de l'image");
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error("Upload échoué — vérifiez que le bucket \"puzzle-images\" est public dans Supabase");
     } finally {
       setUploading(false);
     }

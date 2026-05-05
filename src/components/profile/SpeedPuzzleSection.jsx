@@ -37,9 +37,26 @@ function AddRecordModal({ open, onClose, onAdded, prefillPuzzle }) {
 
   useEffect(() => {
     if (open && !prefillPuzzle) {
-      base44.entities.UserPuzzle.filter({ status: 'done' })
-        .then(items => setPuzzles(items.filter(p => p.puzzle_name)))
-        .catch(() => {});
+      // Charger puzzles terminés ET puzzles personnels
+      Promise.all([
+        base44.entities.UserPuzzle.filter({ status: 'done' }),
+        base44.entities.PersonalPuzzle.list()
+      ]).then(([userPuzzles, personalPuzzles]) => {
+        const fromCollection = userPuzzles
+          .filter(p => p.puzzle_name)
+          .map(p => ({ ...p, _source: 'collection' }));
+        const fromPersonal = personalPuzzles
+          .filter(p => p.name)
+          .map(p => ({
+            id: p.id,
+            puzzle_name: p.name,
+            puzzle_brand: '',
+            puzzle_pieces: p.piece_count,
+            image_url: p.image_url,
+            _source: 'personal'
+          }));
+        setPuzzles([...fromCollection, ...fromPersonal]);
+      }).catch(() => {});
     }
     if (prefillPuzzle) setSelectedPuzzle(prefillPuzzle);
   }, [open, prefillPuzzle]);
@@ -53,24 +70,30 @@ function AddRecordModal({ open, onClose, onAdded, prefillPuzzle }) {
     if (total === 0) { toast.error('Entrez un temps valide'); return; }
 
     setLoading(true);
-    await base44.entities.SpeedRecord.create({
-      puzzle_id: selectedPuzzle.id,
-      puzzle_name: selectedPuzzle.puzzle_name,
-      puzzle_brand: selectedPuzzle.puzzle_brand || '',
-      puzzle_pieces: selectedPuzzle.puzzle_pieces,
-      image: selectedPuzzle.image_url || '',
-      category_tag: selectedPuzzle.category_tag || '',
-      hours: h,
-      minutes: m,
-      seconds: s,
-      total_seconds: total,
-      record_date: recordDate,
-      notes: notes || '',
-    });
-    setLoading(false);
-    toast.success('Record ajouté ! ⚡');
-    onAdded();
-    onClose();
+    try {
+      await base44.entities.SpeedRecord.create({
+        puzzle_id: selectedPuzzle.id,
+        puzzle_name: selectedPuzzle.puzzle_name,
+        puzzle_brand: selectedPuzzle.puzzle_brand || '',
+        puzzle_pieces: selectedPuzzle.puzzle_pieces,
+        image_url: selectedPuzzle.image_url || '',
+        category_tag: selectedPuzzle.category_tag || '',
+        hours: h,
+        minutes: m,
+        seconds: s,
+        total_seconds: total,
+        record_date: recordDate,
+        notes: notes || '',
+      });
+      toast.success('Record ajouté ! ⚡');
+      onAdded();
+      onClose();
+    } catch (e) {
+      console.error('Erreur création record:', e);
+      toast.error('Erreur lors de l\'ajout du record');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredPuzzles = puzzles.filter(p =>

@@ -157,3 +157,18 @@ ALTER TABLE wishlists
 -- Migrate title→puzzle_name if needed
 UPDATE wishlists SET puzzle_name = title WHERE puzzle_name IS NULL AND title IS NOT NULL;
 UPDATE wishlists SET image = image_url WHERE image IS NULL AND image_url IS NOT NULL;
+
+-- ============================================================
+-- Fix personal_puzzles: colonnes manquantes
+-- ============================================================
+ALTER TABLE personal_puzzles ADD COLUMN IF NOT EXISTS image_url TEXT;
+UPDATE personal_puzzles SET image_url = image WHERE image_url IS NULL AND image IS NOT NULL;
+
+-- Fix speed_records: image_url au lieu de image
+ALTER TABLE speed_records ADD COLUMN IF NOT EXISTS image_url TEXT;
+UPDATE speed_records SET image_url = image WHERE image_url IS NULL AND image IS NOT NULL;
+
+-- ============================================================
+-- Bucket puzzle-images : s'assurer qu'il est public
+-- (à faire manuellement dans Supabase Dashboard > Storage > puzzle-images > Make public)
+-- ============================================================

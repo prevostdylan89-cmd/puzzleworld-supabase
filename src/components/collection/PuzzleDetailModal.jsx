@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Loader2, X, ShoppingCart, CheckCircle, Heart, Plus, Trophy } from 'lucide-react';
+import { ExternalLink, Loader2, X, ShoppingCart, CheckCircle, Plus, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/supabaseClient';
 import { useLanguage } from '@/components/LanguageContext';
@@ -35,10 +35,8 @@ function ImageZoomOverlay({ src, alt, onClose }) {
 export default function PuzzleDetailModal({ open, onClose, puzzle }) {
   const { t } = useLanguage();
   const { isGuest } = useAuth(); // eslint-disable-line
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [loading, setLoading] = useState(false);
   const [productData, setProductData] = useState(null);
-  const [isLiked, setIsLiked] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [user, setUser] = useState(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
@@ -47,7 +45,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
   useEffect(() => {
     if (open && puzzle) {
       loadUserData();
-      // Use data from PuzzleCatalog instead of API call
       setProductData({
         title: puzzle.title,
         brand: puzzle.brand,
@@ -59,11 +56,10 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
           availability: { type: 'in_stock' }
         } : null
       });
-      checkLikeAndWishlistStatus();
+      checkWishlistStatus();
       setLoading(false);
     } else {
       setProductData(null);
-      setIsLiked(false);
       setIsWishlisted(false);
     }
   }, [open, puzzle]);
@@ -77,20 +73,10 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
     }
   };
 
-  const checkLikeAndWishlistStatus = async () => {
+  const checkWishlistStatus = async () => {
     if (!puzzle?.asin) return;
-    
     try {
       const currentUser = await base44.auth.me();
-      
-      // Check if liked
-      const likes = await base44.entities.UserPuzzleLike.filter({
-        puzzle_asin: puzzle.asin,
-        created_by: currentUser.email
-      });
-      setIsLiked(likes.length > 0);
-      
-      // Check if wishlisted
       const wishlists = await base44.entities.Wishlist.filter({
         puzzle_name: puzzle.title,
         created_by: currentUser.email
@@ -102,58 +88,9 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
   };
 
   const getAffiliateLink = () => {
-    // Try amazon_link first, then construct from ASIN
-    if (puzzle?.amazon_link) {
-      return puzzle.amazon_link;
-    }
-    if (puzzle?.asin) {
-      return `https://www.amazon.fr/dp/${puzzle.asin}?tag=${AFFILIATE_TAG}`;
-    }
+    if (puzzle?.amazon_link) return puzzle.amazon_link;
+    if (puzzle?.asin) return `https://www.amazon.fr/dp/${puzzle.asin}?tag=${AFFILIATE_TAG}`;
     return '#';
-  };
-
-  const getPriceInfo = () => {
-    const price = puzzle?.amazon_price || puzzle?.price;
-    if (price) {
-      return {
-        available: true,
-        value: price,
-        currency: '€'
-      };
-    }
-    return null;
-  };
-
-  const handleLike = async () => {
-    if (!user) {
-      toast.error(t('loginToLikePuzzle'));
-      return;
-    }
-    
-    try {
-      if (isLiked) {
-        const likes = await base44.entities.UserPuzzleLike.filter({
-          puzzle_asin: puzzle.asin,
-          created_by: user.email
-        });
-        if (likes.length > 0) {
-          await base44.entities.UserPuzzleLike.delete(likes[0].id);
-          setIsLiked(false);
-          toast.success(t('dislikeRemoved'));
-        }
-      } else {
-        await base44.entities.UserPuzzleLike.create({
-          puzzle_asin: puzzle.asin,
-          puzzle_name: puzzle.title,
-          puzzle_brand: puzzle.brand
-        });
-        setIsLiked(true);
-        toast.success(t('puzzleAddedToWishlist').replace('wishlist', 'likes'));
-      }
-    } catch (error) {
-      console.error('Error toggling like:', error);
-      toast.error(t('likeUpdateFailed'));
-    }
   };
 
   const handleWishlist = async () => {
@@ -161,7 +98,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
       toast.error(t('loginToWishlist'));
       return;
     }
-    
     try {
       if (isWishlisted) {
         const wishlists = await base44.entities.Wishlist.filter({
@@ -218,7 +154,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-[#0a0a2e] border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-50 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/70 transition-colors"
@@ -232,7 +167,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
           </div>
         ) : productData ? (
           <>
-            {/* Image Section */}
             <div className="relative w-full bg-white/5 cursor-zoom-in" onClick={() => setShowImageZoom(true)}>
               <img
                 src={productData.main_image?.link || puzzle.image_hd}
@@ -244,7 +178,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
               </div>
             </div>
 
-            {/* Image Zoom Overlay */}
             {showImageZoom && (
               <ImageZoomOverlay
                 src={productData.main_image?.link || puzzle.image_hd}
@@ -253,9 +186,7 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
               />
             )}
 
-            {/* Content Section */}
             <div className="p-6 space-y-6">
-              {/* Title & Brand */}
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">
                   {productData.title || puzzle.title}
@@ -267,7 +198,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
                 )}
               </div>
 
-              {/* Piece Count */}
               {puzzle.piece_count && (
                 <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
                   <span className="text-2xl">🧩</span>
@@ -275,7 +205,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
                 </div>
               )}
 
-              {/* Key Features */}
               {productData.feature_bullets && productData.feature_bullets.length > 0 && (
                 <div>
                   <h3 className="text-white/70 font-semibold mb-3">{t('features')}</h3>
@@ -290,9 +219,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
                 </div>
               )}
 
-
-
-              {/* Add to Collection Buttons */}
               <div>
                 <p className="text-white/50 text-xs mb-2 font-medium uppercase tracking-wide">Ajouter à ma collection</p>
                 <div className="flex gap-3">
@@ -317,35 +243,19 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
                 </div>
               </div>
 
-              {/* Like & Wishlist Buttons */}
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleLike}
-                  variant="outline"
-                  className={`flex-1 h-12 border-2 transition-all ${
-                    isLiked 
-                      ? 'bg-red-500/20 border-red-500 text-red-400 hover:bg-red-500/30' 
-                      : 'border-white/20 text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Heart className={`w-5 h-5 mr-2 ${isLiked ? 'fill-current' : ''}`} />
-                  {isLiked ? t('iLike') : t('like')}
-                </Button>
-                
-                <Button
-                  onClick={handleWishlist}
-                  variant="outline"
-                  className={`flex-1 h-12 border-2 transition-all ${
-                    isWishlisted 
-                      ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 hover:bg-yellow-500/30' 
-                      : 'border-white/20 text-white hover:bg-white/5'
-                  }`}
-                >
-                  ⭐ {isWishlisted ? t('wishlist') : 'Wishlist'}
-                </Button>
-              </div>
+              {/* Wishlist uniquement */}
+              <Button
+                onClick={handleWishlist}
+                variant="outline"
+                className={`w-full h-12 border-2 transition-all ${
+                  isWishlisted
+                    ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 hover:bg-yellow-500/30'
+                    : 'border-white/20 text-white hover:bg-white/5'
+                }`}
+              >
+                ⭐ {isWishlisted ? t('wishlist') : 'Ajouter à la Wishlist'}
+              </Button>
 
-              {/* CTA Button */}
               <Button
                 onClick={() => window.open(getAffiliateLink(), '_blank')}
                 className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white h-12 text-lg font-semibold"
@@ -353,8 +263,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
                 <ExternalLink className="w-5 h-5 mr-2" />
                 {t('viewOnAmazon')}
               </Button>
-
-
 
               <p className="text-white/40 text-xs text-center">
                 {t('amazonDisclaimer')}
@@ -364,11 +272,7 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
         ) : (
           <div className="p-12 text-center">
             <p className="text-white/60">{t('loadError')}</p>
-            <Button
-              onClick={onClose}
-              variant="outline"
-              className="mt-4 border-white/20 text-white hover:bg-white/5"
-            >
+            <Button onClick={onClose} variant="outline" className="mt-4 border-white/20 text-white hover:bg-white/5">
               {t('close')}
             </Button>
           </div>
