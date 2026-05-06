@@ -103,6 +103,7 @@ export default function WishlistSection({ user }) {
           created_date: p.created_date,
           _source: 'user_puzzle',
           _raw: p,
+          asin: p.puzzle_reference || null,
           // Use full catalog data if available, otherwise build minimal from puzzle reference
           catalogData: catalog || (p.puzzle_reference ? {
             title: p.puzzle_name,
