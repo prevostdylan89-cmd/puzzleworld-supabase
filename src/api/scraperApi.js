@@ -1,87 +1,55 @@
-/**
- * scraperApi.js
- * Utilitaire pour appeler ScraperAPI (recherche Amazon puzzles)
- */
+// rainforestApi.js — Utilitaire pour appeler Rainforest API (recherche Amazon puzzles)
 import { supabase } from './supabaseClient';
 
-const SETTINGS_KEY = 'scraper_api_settings';
-
-// Cache mémoire 5 minutes
-let cachedApiKey = null;
-let cacheTime = null;
-const CACHE_DURATION = 5 * 60 * 1000;
-
-export async function getScraperApiKey() {
-  if (cachedApiKey && cacheTime && (Date.now() - cacheTime < CACHE_DURATION)) {
-    return cachedApiKey;
-  }
+// Récupère la clé Rainforest depuis Supabase (table page_settings)
+export async function getRainforestApiKey() {
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('page_settings')
       .select('settings')
-      .eq('page_name', SETTINGS_KEY)
-      .limit(1);
-    if (data && data.length > 0 && data[0].settings?.api_key) {
-      cachedApiKey = data[0].settings.api_key;
-      cacheTime = Date.now();
-      return cachedApiKey;
-    }
+      .single();
+    if (error) throw error;
+    return data?.settings?.rainforestApiKey ?? null;
   } catch (e) {
-    console.error('Erreur récupération clé ScraperAPI:', e);
+    console.error('Erreur récupération clé Rainforest:', e);
+    return null;
   }
-  return null;
 }
 
-export function invalidateScraperCache() {
-  cachedApiKey = null;
-  cacheTime = null;
-}
+const RAINFOREST_BASE = 'https://api.rainforestapi.com/request';
 
-/**
- * Recherche de puzzles Amazon via ScraperAPI
- * Utilise le endpoint Amazon Search de ScraperAPI
- */
-export async function searchAmazon(searchTerm, apiKey) {
-  const key = apiKey || await getScraperApiKey();
-  if (!key) throw new Error('Clé ScraperAPI non configurée');
+// Recherche de puzzles Amazon via Rainforest API
+export async function searchAmazon(query, apiKey) {
+  let key = apiKey || await getRainforestApiKey();
+  if (!key) throw new Error('Clé Rainforest non configurée');
 
-  const targetUrl = `https://www.amazon.fr/s?k=${encodeURIComponent(searchTerm)}&i=toys`;
-  const url = `https://api.scraperapi.com/?api_key=${key}&url=${encodeURIComponent(targetUrl)}&autoparse=true`;
-
+  const url = `${RAINFOREST_BASE}?api_key=${key}&type=search&amazon_domain=amazon.fr&search_term=${encodeURIComponent(query)}`;
   const response = await fetch(url);
-  if (response.status === 401) throw new Error('Clé API invalide');
-  if (response.status === 429) throw new Error('Limite de requêtes atteinte');
-  if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.status}`);
-
-  return response.json();
+  if (!response.ok) throw new Error(`Rainforest API erreur: ${response.status}`);
+  const data = await response.json();
+  return data?.search_results ?? [];
 }
 
-/**
- * Récupère les détails d'un produit Amazon via ASIN
- */
+// Fiche complète par ASIN (marque, pièces, image HD)
 export async function getProductByAsin(asin, apiKey) {
-  const key = apiKey || await getScraperApiKey();
-  if (!key) throw new Error('Clé ScraperAPI non configurée');
+  let key = apiKey || await getRainforestApiKey();
+  if (!key) throw new Error('Clé Rainforest non configurée');
 
-  const targetUrl = `https://www.amazon.fr/dp/${asin}`;
-  const url = `https://api.scraperapi.com/?api_key=${key}&url=${encodeURIComponent(targetUrl)}&autoparse=true`;
-
+  const url = `${RAINFOREST_BASE}?api_key=${key}&type=product&amazon_domain=amazon.fr&asin=${asin}`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.status}`);
-
-  return response.json();
+  if (!response.ok) throw new Error(`Rainforest API erreur: ${response.status}`);
+  const data = await response.json();
+  return data?.product ?? null;
 }
 
-/**
- * Récupère les crédits restants du compte ScraperAPI
- */
+// Crédits restants du compte Rainforest
 export async function getScraperCredits(apiKey) {
-  const key = apiKey || await getScraperApiKey();
-  if (!key) throw new Error('Clé ScraperAPI non configurée');
+  let key = apiKey || await getRainforestApiKey();
+  if (!key) throw new Error('Clé Rainforest non configurée');
 
-  const response = await fetch(`https://api.scraperapi.com/account?api_key=${key}`);
-  if (response.status === 401) throw new Error('Clé API invalide');
-  if (!response.ok) throw new Error(`Erreur: ${response.status}`);
-
-  return response.json();
+  const url = `${RAINFOREST_BASE}?api_key=${key}&type=account`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Rainforest API erreur: ${response.status}`);
+  const data = await response.json();
+  return data?.account_info?.credits_remaining ?? null;
 }

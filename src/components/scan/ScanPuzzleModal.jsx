@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/api/supabaseClient';
-import { searchAmazon } from '@/api/scraperApi';
+import { searchAmazon, getProductByAsin } from '@/api/scraperApi';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
@@ -203,12 +203,19 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       return;
     }
 
-    // ETAPE 4 : Appel ScraperAPI
+    // ETAPE 4 : Appel Rainforest API — recherche par EAN
     try {
-      const searchData = await searchAmazon(code);
-      console.log('ScraperAPI response:', searchData);
+      // Tentative 1 : EAN direct
+      let searchData = await searchAmazon(code);
+      console.log('Rainforest API response (EAN direct):', searchData);
 
-      const results = searchData?.results || searchData?.search_results || [];
+      // Tentative 2 : "puzzle " + EAN si aucun résultat
+      if (!searchData || searchData.length === 0) {
+        searchData = await searchAmazon(`puzzle ${code}`);
+        console.log('Rainforest API response (puzzle + EAN):', searchData);
+      }
+
+      const results = searchData || [];
 
       if (!results.length) {
         setScanMessage({ type: 'error', text: 'Puzzle non trouve sur Amazon. Ajoutez-le manuellement !' });
@@ -220,19 +227,49 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       const item = results[0];
       await consumeCredit();
 
-      const imageUrl = item.main_image?.link || item.image || item.thumbnail || '';
+      // ETAPE 5 : Appel getProductByAsin pour récupérer marque + pièces
+      let brand = item.brand || '';
+      let pieces = null;
+      let imageUrl = item.image?.link || item.image || item.thumbnail || '';
+
+      if (item.asin) {
+        try {
+          const detail = await getProductByAsin(item.asin);
+          console.log('Rainforest getProductByAsin:', detail);
+
+          brand = detail?.brand || brand;
+          imageUrl = detail?.main_image?.link || imageUrl;
+
+          // Chercher le nombre de pièces dans les specifications
+          const specs = detail?.specifications || detail?.feature_bullets || [];
+          const piecesSpec = specs.find(s =>
+            s.name?.toLowerCase().includes('pièces') ||
+            s.name?.toLowerCase().includes('pieces') ||
+            s.name?.toLowerCase().includes('nombre') ||
+            s.value?.toLowerCase().includes('pièces') ||
+            s.value?.toLowerCase().includes('pieces')
+          );
+          if (piecesSpec) {
+            const match = piecesSpec.value?.match(/(\d+)/);
+            if (match) pieces = parseInt(match[1]);
+          }
+        } catch (e) {
+          console.error('getProductByAsin error:', e);
+        }
+      }
+
       const puzzleInfo = {
-        name: item.name || item.title || '',
-        title: item.name || item.title || '',
-        brand: item.brand || item.manufacturer || '',
+        name: item.title || '',
+        title: item.title || '',
+        brand,
         image: imageUrl,
         image_hd: imageUrl,
-        pieces: null,
-        piece_count: null,
+        pieces,
+        piece_count: pieces,
         asin: item.asin || '',
         ean: code,
         sku: item.asin || code,
-        amazon_price: item.buybox_winner?.price?.value || item.price?.value || null,
+        amazon_price: item.price?.value || null,
         amazon_rating: item.rating || null,
         link: item.asin ? `https://www.amazon.fr/dp/${item.asin}?tag=puzzleworld-21` : '',
         isPending: true,
@@ -243,7 +280,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       if (skipCollectionAdd && onPuzzleAdded) onPuzzleAdded(puzzleInfo);
 
     } catch (error) {
-      console.error('ScraperAPI error:', error);
+      console.error('Rainforest API error:', error);
       setScanMessage({ type: 'error', text: 'Puzzle non trouve. Ajoutez-le manuellement !' });
       setActiveTab('manual');
       setLoading(false);
@@ -323,7 +360,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       for (const { puzzleData: pd, selectedStatus: status, rating, userPhoto: photo, speedRecord } of batch) {
         let catalogPuzzleId = pd.catalog_id || null;
 
-        // Creer dans le catalogue si nouveau puzzle
         if (!catalogPuzzleId && pd.isPending) {
           const { data: newEntry, error: catError } = await supabase
             .from('puzzle_catalog')
@@ -347,7 +383,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
         const refCode = pd.ean || pd.asin || pd.sku || barcode;
 
-        // Ajouter dans user_puzzles
         const { data: newUserPuzzle, error: upError } = await supabase
           .from('user_puzzles')
           .insert([{
@@ -367,7 +402,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
         if (upError) console.error('UserPuzzle insert error:', upError);
 
-        // Sauvegarder temps record
         if (speedRecord && newUserPuzzle) {
           await supabase.from('speed_records').insert([{
             puzzle_id: newUserPuzzle.id,
@@ -385,7 +419,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           }]);
         }
 
-        // Mettre a jour compteurs catalogue
         if (catalogPuzzleId) {
           const { data: cat } = await supabase
             .from('puzzle_catalog')

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/api/supabaseClient';
-import { invalidateScraperCache, getScraperCredits } from '@/api/scraperApi';
+import { getScraperCredits } from '@/api/scraperApi';
 import { toast } from 'sonner';
 import {
   Key, RefreshCw, AlertTriangle, CheckCircle,
@@ -41,9 +41,8 @@ export default function DashboardRainforest() {
     if (!key) { toast.error('Aucune cle API configuree'); return; }
     setLoadingCredits(true);
     try {
-      const data = await getScraperCredits(key);
-      const remaining = data.requestCount?.monthlyLimit - data.requestCount?.thisMonthUsageCount;
-      setCredits(remaining ?? data.requestCount?.monthlyLimit ?? null);
+      const remaining = await getScraperCredits(key);
+      setCredits(remaining);
       await saveCreditsToDb(remaining);
       toast.success('Credits recuperes : ' + remaining);
     } catch (e) {
@@ -58,12 +57,12 @@ export default function DashboardRainforest() {
     setLoadingTest(true);
     setTestResult(null);
     try {
-      const data = await getScraperCredits(key);
-      if (data) {
+      const remaining = await getScraperCredits(key);
+      if (remaining !== null) {
         setTestResult('ok');
         setLastChecked(new Date());
-        const remaining = data.requestCount?.monthlyLimit - data.requestCount?.thisMonthUsageCount;
-        if (remaining !== undefined) { setCredits(remaining); await saveCreditsToDb(remaining); }
+        setCredits(remaining);
+        await saveCreditsToDb(remaining);
         toast.success('Cle API valide !');
       }
     } catch (e) {
@@ -87,7 +86,6 @@ export default function DashboardRainforest() {
       }
       setApiKey(newApiKey.trim());
       setNewApiKey('');
-      invalidateScraperCache();
       toast.success('Cle API sauvegardee !');
       await testApiKey(newApiKey.trim());
     } catch (e) {
@@ -112,7 +110,7 @@ export default function DashboardRainforest() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-1">ScraperAPI</h2>
+        <h2 className="text-2xl font-bold text-white mb-1">Rainforest API</h2>
         <p className="text-white/50 text-sm">Gestion de la cle API pour la recherche de puzzles Amazon</p>
       </div>
 
@@ -134,7 +132,7 @@ export default function DashboardRainforest() {
             {credits !== null && credits < 50 && (
               <div className="flex items-center gap-2 mt-2 text-red-400 text-xs">
                 <AlertTriangle className="w-3 h-3" />
-                Credits bas ! Recharge ton compte ScraperAPI.
+                Credits bas ! Recharge ton compte Rainforest API.
               </div>
             )}
           </CardContent>
@@ -192,7 +190,7 @@ export default function DashboardRainforest() {
               {loadingTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             </Button>
           </div>
-          <p className="text-white/30 text-xs">Le test consomme 1 credit ScraperAPI</p>
+          <p className="text-white/30 text-xs">Le test consomme 1 credit Rainforest API</p>
         </CardContent>
       </Card>
 
@@ -204,11 +202,11 @@ export default function DashboardRainforest() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-white/50 text-sm">Trouve ta cle sur dashboard.scraperapi.com dans l'onglet API Key</p>
+          <p className="text-white/50 text-sm">Trouve ta cle sur app.rainforestapi.com dans le dashboard</p>
           <div className="flex gap-2">
             <Input
               type="text"
-              placeholder="Nouvelle cle API ScraperAPI..."
+              placeholder="Nouvelle cle API Rainforest..."
               value={newApiKey}
               onChange={e => setNewApiKey(e.target.value)}
               className="bg-white/5 border-white/20 text-white font-mono text-sm flex-1"
@@ -222,15 +220,15 @@ export default function DashboardRainforest() {
 
       <Card className="bg-blue-500/5 border-blue-500/20">
         <CardContent className="pt-6">
-          <p className="text-blue-300 text-sm font-medium mb-2">A propos de ScraperAPI</p>
+          <p className="text-blue-300 text-sm font-medium mb-2">A propos de Rainforest API</p>
           <ul className="text-white/50 text-xs space-y-1">
-            <li>Plan gratuit : 1 000 credits par mois</li>
-            <li>1 recherche = 1 credit</li>
-            <li>Renouvellement automatique chaque mois</li>
-            <li>Supporte Amazon.fr nativement</li>
+            <li>Plan gratuit : 100 requetes par mois</li>
+            <li>1 recherche = 1 requete</li>
+            <li>Resultats directs depuis Amazon.fr</li>
+            <li>Marque, pieces, images HD disponibles</li>
           </ul>
         </CardContent>
-      </Card>
+      </card>
     </div>
   );
 }
