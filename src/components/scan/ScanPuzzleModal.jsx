@@ -523,14 +523,13 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setActiveTab(isMobile ? 'scanner' : 'manual');
   };
 
-  const handleBarcodeSubmit = async () => {
-    if (barcodeInput.length !== 13) {
-      toast.error('Le code-barres doit contenir 13 chiffres');
-      return;
-    }
-    await fetchPuzzleData(barcodeInput);
-  };
-
+const handleBarcodeSubmit = async () => {
+  if (barcodeInput.length !== 13 && barcodeInput.length !== 14) {
+    toast.error('Le code-barres doit contenir 13 ou 14 chiffres');
+    return;
+  }
+  await fetchPuzzleData(barcodeInput);
+};
   const handleManualModalSubmit = (newPuzzleData) => {
     setShowManualModal(false);
     setShowNotMyPuzzle(false);
@@ -609,12 +608,11 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                               Activer la Camera
                             </Button>
                             <div className="w-full max-w-sm">
-                              <div className="text-white/50 text-sm text-center mb-3">ou saisir le code-barres</div>
-                              <div className="flex gap-2">
-                                <Input type="text" placeholder="13 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 13))} className="bg-white/5 border-white/10 text-white text-center tracking-wider" maxLength={13} />
-                                <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 13} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50">OK</Button>
-                              </div>
-                            </div>
+<div className="text-white/50 text-sm text-center mb-3">ou saisir le code-barres</div>
+<div className="flex gap-2">
+  <Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider" maxLength={14} />
+  <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 13 && barcodeInput.length !== 14} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50">OK</Button>
+</div>                            </div>
                           </div>
                         )}
                         {cameraReady && (
@@ -662,8 +660,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                     <div className="text-center mb-6">
                       <Barcode className="w-16 h-16 text-orange-500 mx-auto mb-3" />
                       <h3 className="text-white text-lg font-semibold mb-1">Saisir le code-barres</h3>
-                      <p className="text-white/60 text-sm">Entrez les 13 chiffres du code-barres</p>
-                    </div>
+<p className="text-white/60 text-sm">Entrez les 13 ou 14 chiffres du code-barres</p>                    </div>
                     <div className="bg-white/5 rounded-lg p-4 mb-4 border border-white/10">
                       <p className="text-white/70 text-xs text-center mb-3">Les chiffres se trouvent sous les barres :</p>
                       <div className="flex flex-col items-center gap-2">
@@ -679,9 +676,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Input type="text" placeholder="13 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 13))} className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg" maxLength={13} disabled={loading} />
-                      <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 13 || loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6">
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'OK'}
+<Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg" maxLength={14} disabled={loading} />
+<Button onClick={handleBarcodeSubmit} disabled={(barcodeInput.length !== 13 && barcodeInput.length !== 14) || loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6">                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'OK'}
                       </Button>
                     </div>
                     {loading && (
@@ -838,6 +834,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                         {[
                           { value: 'wishlist', emoji: '⭐', label: 'Wishlist', active: 'border-yellow-500 bg-yellow-500/20 text-yellow-400' },
                           { value: 'inbox', emoji: '📦', label: "Je l'ai chez moi", active: 'border-blue-500 bg-blue-500/20 text-blue-400' },
+                          { value: 'in_progress', emoji: '🧩', label: 'En cours', active: 'border-orange-500 bg-orange-500/20 text-orange-400' },
                           { value: 'done', emoji: '✅', label: 'Termine', active: 'border-green-500 bg-green-500/20 text-green-400' },
                         ].map(({ value, emoji, label, active }) => (
                           <button key={value} type="button" onClick={() => setSelectedStatus(value)}
