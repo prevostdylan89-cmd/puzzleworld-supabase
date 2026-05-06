@@ -356,14 +356,13 @@ export default function WishlistSection({ user }) {
                 </div>
               )}
 
-              <div className="aspect-[3/4] overflow-hidden bg-white/5">
-                {item.image_url ? (
-                  <img src={item.image_url} alt={item.puzzle_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/20 text-2xl">⭐</div>
-                )}
-              </div>
-              <div className="p-2">
+<div className="aspect-[3/4] overflow-hidden bg-white/5">
+  {(item.image || item.image_url) ? (
+    <img src={item.image || item.image_url} alt={item.puzzle_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center text-white/20 text-2xl">⭐</div>
+  )}
+</div>              <div className="p-2">
                 <h4 className="text-white text-[11px] font-semibold line-clamp-2 leading-tight">{item.puzzle_name}</h4>
                 {item.puzzle_pieces > 0 && (
                   <p className="text-white/40 text-[10px] mt-0.5">{item.puzzle_pieces} pcs</p>

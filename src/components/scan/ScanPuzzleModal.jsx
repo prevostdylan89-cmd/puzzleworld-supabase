@@ -838,7 +838,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                         {[
                           { value: 'wishlist', emoji: '⭐', label: 'Wishlist', active: 'border-yellow-500 bg-yellow-500/20 text-yellow-400' },
                           { value: 'inbox', emoji: '📦', label: "Je l'ai chez moi", active: 'border-blue-500 bg-blue-500/20 text-blue-400' },
-                          { value: 'in_progress', emoji: '🧩', label: 'En cours', active: 'border-orange-500 bg-orange-500/20 text-orange-400' },
                           { value: 'done', emoji: '✅', label: 'Termine', active: 'border-green-500 bg-green-500/20 text-green-400' },
                         ].map(({ value, emoji, label, active }) => (
                           <button key={value} type="button" onClick={() => setSelectedStatus(value)}

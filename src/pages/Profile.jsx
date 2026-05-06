@@ -88,12 +88,14 @@ export default function Profile() {
 
     const unsubscribeUserPuzzle = base44.entities.UserPuzzle.subscribe(() => {
       clearTimeout(puzzleDebounceTimer);
-      puzzleDebounceTimer = setTimeout(async () => {
-        const completedPuzzles = await base44.entities.UserPuzzle.filter({ created_by: user.email, status: 'done' });
-        const totalPieces = completedPuzzles.reduce((sum, p) => sum + (p.puzzle_pieces || 0), 0);
-        setStats(prev => ({ ...prev, completed: completedPuzzles.length, totalPieces }));
-      }, 2000);
-    });
+puzzleDebounceTimer = setTimeout(async () => {
+  const [completedPuzzles, updatedWishlist] = await Promise.all([
+    base44.entities.UserPuzzle.filter({ created_by: user.email, status: 'done' }),
+    base44.entities.UserPuzzle.filter({ created_by: user.email, status: 'wishlist' }),
+  ]);
+  const totalPieces = completedPuzzles.reduce((sum, p) => sum + (p.puzzle_pieces || 0), 0);
+  setStats(prev => ({ ...prev, completed: completedPuzzles.length, totalPieces, wishlist: updatedWishlist.length }));
+}, 2000);    });
     const unsubscribeWishlist = base44.entities.Wishlist.subscribe(() => {
       clearTimeout(wishlistDebounceTimer);
       wishlistDebounceTimer = setTimeout(async () => {
@@ -150,7 +152,7 @@ export default function Profile() {
       const wishlistSeen = new Set();
       const wishlistItems = [];
       for (const item of [...userPuzzleWishlist, ...oldWishlist]) {
-        const key = item.puzzle_name?.toLowerCase().trim();
+        const key = (item.puzzle_name || item.title)?.toLowerCase().trim();
         if (!key || wishlistSeen.has(key)) continue;
         wishlistSeen.add(key);
         wishlistItems.push(item);
