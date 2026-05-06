@@ -228,7 +228,7 @@ export default function DashboardRainforest() {
             <li>Marque, pieces, images HD disponibles</li>
           </ul>
         </CardContent>
-      </card>
+      </Card>
     </div>
   );
 }
