@@ -59,7 +59,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -98,7 +97,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     } catch (err) {
       setScanning(false);
       setCameraReady(false);
-      toast.error('Impossible de demarrer la camera. Verifiez les permissions.');
+      toast.error('Impossible de demarrer la camera.');
     }
   };
 
@@ -123,7 +122,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setExistingPuzzle(null);
     setScanMessage(null);
 
-    // ETAPE 1 : Verifier si deja dans la collection de l'utilisateur
+    // ETAPE 1 : Verifier si deja dans la collection
     if (!skipCollectionAdd && user) {
       try {
         const { data: userPuzzles } = await supabase
@@ -138,7 +137,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           return;
         }
       } catch (err) {
-        console.error('Error checking user collection:', err);
+        console.error('Error checking collection:', err);
       }
     }
 
@@ -163,10 +162,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         const catalogPuzzle = catalogResults[0];
 
         if (catalogPuzzle.status === 'pending') {
-          setScanMessage({
-            type: 'pending',
-            text: 'Ce puzzle est deja dans notre base, mais en cours de validation par notre equipe.'
-          });
+          setScanMessage({ type: 'pending', text: 'Ce puzzle est deja dans notre base, mais en cours de validation.' });
           setLoading(false);
           return;
         }
@@ -202,10 +198,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     // ETAPE 3 : Verifier les credits
     if (isLimitReached) {
       const { dateStr, timeStr } = getResetInfo();
-      setScanMessage({
-        type: 'limit',
-        text: `Limite journaliere atteinte (${DAILY_LIMIT} scans/jour). Vos credits se rechargent le ${dateStr} a ${timeStr}.`
-      });
+      setScanMessage({ type: 'limit', text: `Limite journaliere atteinte (${DAILY_LIMIT} scans/jour). Rechargement le ${dateStr} a ${timeStr}.` });
       setLoading(false);
       return;
     }
@@ -213,25 +206,27 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     // ETAPE 4 : Appel ScraperAPI
     try {
       const searchData = await searchAmazon(code);
+      console.log('ScraperAPI response:', searchData);
 
-      if (!searchData?.results?.length && !searchData?.search_results?.length) {
-        setScanMessage({ type: 'error', text: 'Ce puzzle n\'est pas encore dans notre base. Ajoutez-le manuellement !' });
+      const results = searchData?.results || searchData?.search_results || [];
+
+      if (!results.length) {
+        setScanMessage({ type: 'error', text: 'Puzzle non trouve sur Amazon. Ajoutez-le manuellement !' });
         setActiveTab('manual');
         setLoading(false);
         return;
       }
 
-      const results = searchData.results || searchData.search_results || [];
       const item = results[0];
-
       await consumeCredit();
 
+      const imageUrl = item.main_image?.link || item.image || item.thumbnail || '';
       const puzzleInfo = {
         name: item.name || item.title || '',
         title: item.name || item.title || '',
         brand: item.brand || item.manufacturer || '',
-        image: item.main_image?.link || item.image || '',
-        image_hd: item.main_image?.link || item.image || '',
+        image: imageUrl,
+        image_hd: imageUrl,
         pieces: null,
         piece_count: null,
         asin: item.asin || '',
@@ -249,7 +244,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
     } catch (error) {
       console.error('ScraperAPI error:', error);
-      setScanMessage({ type: 'error', text: 'Notre scanner est fatigue ! Reessayez dans quelques secondes ou ajoutez manuellement.' });
+      setScanMessage({ type: 'error', text: 'Puzzle non trouve. Ajoutez-le manuellement !' });
       setActiveTab('manual');
       setLoading(false);
     }
@@ -289,7 +284,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       setUserPhoto(urlData.publicUrl);
       toast.success('Photo ajoutee !');
     } catch (err) {
-      toast.error('Erreur lors de l\'upload');
+      toast.error('Erreur upload photo');
     } finally {
       setIsUploadingPhoto(false);
       e.target.value = '';
@@ -307,7 +302,12 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       selectedStatus,
       rating: scanRating || null,
       userPhoto: userPhoto || null,
-      speedRecord: speedTotal > 0 ? { hours: parseInt(speedHours) || 0, minutes: parseInt(speedMinutes) || 0, seconds: parseInt(speedSeconds) || 0, total_seconds: speedTotal } : null
+      speedRecord: speedTotal > 0 ? {
+        hours: parseInt(speedHours) || 0,
+        minutes: parseInt(speedMinutes) || 0,
+        seconds: parseInt(speedSeconds) || 0,
+        total_seconds: speedTotal
+      } : null
     }];
     setPendingBatch(newBatch);
     if (finalize) {
@@ -323,12 +323,12 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       for (const { puzzleData: pd, selectedStatus: status, rating, userPhoto: photo, speedRecord } of batch) {
         let catalogPuzzleId = pd.catalog_id || null;
 
-        // Si nouveau puzzle, creer dans le catalogue en pending
+        // Creer dans le catalogue si nouveau puzzle
         if (!catalogPuzzleId && pd.isPending) {
-          const { data: newEntry, error } = await supabase
+          const { data: newEntry, error: catError } = await supabase
             .from('puzzle_catalog')
             .insert([{
-              title: pd.title || pd.name,
+              title: pd.title || pd.name || '',
               brand: pd.brand || '',
               piece_count: pd.piece_count || pd.pieces || 0,
               image_hd: pd.image_hd || pd.image || '',
@@ -341,19 +341,20 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
             }])
             .select()
             .single();
-          if (!error && newEntry) catalogPuzzleId = newEntry.id;
+          if (catError) console.error('Catalog insert error:', catError);
+          if (newEntry) catalogPuzzleId = newEntry.id;
         }
 
         const refCode = pd.ean || pd.asin || pd.sku || barcode;
 
         // Ajouter dans user_puzzles
-        const { data: newUserPuzzle } = await supabase
+        const { data: newUserPuzzle, error: upError } = await supabase
           .from('user_puzzles')
           .insert([{
             puzzle_name: pd.name || pd.title || '',
             puzzle_brand: pd.brand || '',
             puzzle_pieces: pd.pieces || pd.piece_count || 0,
-            image: pd.image || pd.image_hd || '',
+            image_url: pd.image || pd.image_hd || '',
             puzzle_reference: refCode,
             catalog_puzzle_id: catalogPuzzleId,
             status,
@@ -364,7 +365,9 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           .select()
           .single();
 
-        // Sauvegarder le temps record si fourni
+        if (upError) console.error('UserPuzzle insert error:', upError);
+
+        // Sauvegarder temps record
         if (speedRecord && newUserPuzzle) {
           await supabase.from('speed_records').insert([{
             puzzle_id: newUserPuzzle.id,
@@ -382,7 +385,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           }]);
         }
 
-        // Mettre a jour les compteurs du catalogue
+        // Mettre a jour compteurs catalogue
         if (catalogPuzzleId) {
           const { data: cat } = await supabase
             .from('puzzle_catalog')
@@ -400,14 +403,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       setLoading(false);
       setShowAddAnother(false);
       setShowSuccess(true);
-      toast.success(`${batch.length} puzzle${batch.length > 1 ? 's' : ''} ajoute${batch.length > 1 ? 's' : ''} a votre collection !`);
+      toast.success(`${batch.length} puzzle${batch.length > 1 ? 's' : ''} ajoute${batch.length > 1 ? 's' : ''} !`);
       queryClient.invalidateQueries({ queryKey: ['userPuzzles'] });
       queryClient.invalidateQueries({ queryKey: ['completedPuzzles'] });
       queryClient.invalidateQueries({ queryKey: ['wishlistPuzzles'] });
       queryClient.invalidateQueries({ queryKey: ['globalPuzzles'] });
     } catch (error) {
       setLoading(false);
-      console.error('Error saving batch:', error);
+      console.error('saveBatch error:', error);
       toast.error('Erreur lors de l\'ajout');
     }
   };
@@ -490,7 +493,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
               <h3 className="text-white font-bold text-lg">Fonctionnalite reservee aux membres</h3>
               <p className="text-white/50 text-sm">Creez un compte gratuit pour scanner et ajouter des puzzles.</p>
               <Button onClick={() => window.location.href = '/login'} className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl px-6">
-                Se connecter / Creer un compte
+                Se connecter
               </Button>
               <button onClick={onClose} className="text-white/30 text-sm hover:text-white/60">Fermer</button>
             </div>
@@ -498,9 +501,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
           {!isGuest && (<>
             {!puzzleData && !showSuccess && scanMessage && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                 className={`rounded-xl p-4 text-center text-sm font-medium border ${
                   scanMessage.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-300'
                   : scanMessage.type === 'community' ? 'bg-green-500/10 border-green-500/30 text-green-300'
@@ -513,14 +514,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
               </motion.div>
             )}
 
-            {!isGuest && !creditsLoading && !showSuccess && (
+            {!creditsLoading && !showSuccess && (
               <div className={`flex items-center justify-center gap-2 text-xs rounded-lg px-3 py-2 ${
                 remaining === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20'
                 : remaining <= 2 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
                 : 'bg-white/5 text-white/40 border border-white/10'
               }`}>
                 <span>🔍</span>
-                <span>{remaining === 0 ? `Limite atteinte - ${DAILY_LIMIT} scans utilises aujourd'hui` : `${remaining} scan${remaining > 1 ? 's' : ''} API restant${remaining > 1 ? 's' : ''} aujourd'hui`}</span>
+                <span>{remaining === 0 ? `Limite atteinte - ${DAILY_LIMIT} scans utilises aujourd'hui` : `${remaining} scan${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''} aujourd'hui`}</span>
               </div>
             )}
 
@@ -536,7 +537,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                         <Edit className="w-4 h-4 mr-2" />Saisie Manuelle
                       </TabsTrigger>
                     </TabsList>
-
                     <TabsContent value="scanner" className="mt-4">
                       <div className="space-y-4">
                         <div id="file-reader-temp" style={{ display: 'none' }}></div>
@@ -551,14 +551,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                             <div className="w-full max-w-sm">
                               <div className="text-white/50 text-sm text-center mb-3">ou saisir le code-barres</div>
                               <div className="flex gap-2">
-                                <Input
-                                  type="text"
-                                  placeholder="13 chiffres"
-                                  value={barcodeInput}
-                                  onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 13))}
-                                  className="bg-white/5 border-white/10 text-white text-center tracking-wider"
-                                  maxLength={13}
-                                />
+                                <Input type="text" placeholder="13 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 13))} className="bg-white/5 border-white/10 text-white text-center tracking-wider" maxLength={13} />
                                 <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 13} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50">OK</Button>
                               </div>
                             </div>
@@ -573,12 +566,11 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                         {loading && (
                           <div className="flex flex-col items-center justify-center py-12 space-y-4">
                             <Loader2 className="w-12 h-12 text-orange-400 animate-spin" />
-                            <p className="text-white font-semibold">Recherche du puzzle en cours...</p>
+                            <p className="text-white font-semibold">Recherche en cours...</p>
                           </div>
                         )}
                       </div>
                     </TabsContent>
-
                     <TabsContent value="manual" className="mt-4">
                       <div className="space-y-4">
                         <div>
@@ -627,15 +619,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Input
-                        type="text"
-                        placeholder="13 chiffres"
-                        value={barcodeInput}
-                        onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 13))}
-                        className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg"
-                        maxLength={13}
-                        disabled={loading}
-                      />
+                      <Input type="text" placeholder="13 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 13))} className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg" maxLength={13} disabled={loading} />
                       <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 13 || loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6">
                         {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'OK'}
                       </Button>
@@ -643,7 +627,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                     {loading && (
                       <div className="flex flex-col items-center justify-center py-8 space-y-4">
                         <Loader2 className="w-12 h-12 text-orange-400 animate-spin" />
-                        <p className="text-white font-semibold">Recherche du puzzle en cours...</p>
+                        <p className="text-white font-semibold">Recherche en cours...</p>
                       </div>
                     )}
                   </div>
@@ -653,14 +637,12 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
             {!puzzleData && !showSuccess && !skipCollectionAdd && scanMessage?.type !== 'pending' && (
               <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowPersonalModal(true)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/50 transition-all group"
+                <button type="button" onClick={() => setShowPersonalModal(true)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 transition-all group"
                 >
                   <span className="text-2xl">🧩</span>
                   <div className="text-left">
-                    <p className="text-purple-300 text-sm font-medium group-hover:text-purple-200">Ajouter un puzzle personnalise</p>
+                    <p className="text-purple-300 text-sm font-medium">Ajouter un puzzle personnalise</p>
                     <p className="text-white/30 text-xs">Non scannable - Visible uniquement dans votre collection</p>
                   </div>
                 </button>
@@ -716,7 +698,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                         </Button>
                       </div>
                     ) : (
-                      <p className="text-white text-sm">{puzzleData.pieces ? `${puzzleData.pieces} pieces` : 'Non renseigne'}</p>
+                      <p className="text-white text-sm">{puzzleData.pieces ? `${puzzleData.pieces} pieces` : 'Non renseigne - utilisez Modifier'}</p>
                     )}
                   </div>
                 </motion.div>
@@ -726,11 +708,11 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                     <div className="text-center">
                       <span className="text-3xl mb-3 block">🤔</span>
                       <p className="text-white font-semibold mb-1">Ce puzzle ne correspond pas ?</p>
-                      <p className="text-white/50 text-sm">Vous pouvez l'ajouter manuellement avec les bonnes informations.</p>
+                      <p className="text-white/50 text-sm">Ajoutez-le manuellement avec les bonnes informations.</p>
                     </div>
                     <div className="flex flex-col gap-2">
                       <Button onClick={() => setShowManualModal(true)} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white">Ajouter manuellement</Button>
-                      <Button onClick={() => setShowNotMyPuzzle(false)} variant="ghost" className="w-full text-white/50 hover:text-white hover:bg-white/5 text-sm">Retour</Button>
+                      <Button onClick={() => setShowNotMyPuzzle(false)} variant="ghost" className="w-full text-white/50 hover:text-white text-sm">Retour</Button>
                     </div>
                   </motion.div>
                 ) : !puzzleConfirmed ? (
@@ -754,7 +736,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                       {userPhoto ? (
                         <div className="relative">
                           <img src={userPhoto} alt="Ma photo" className="w-full h-32 object-cover rounded-lg" />
-                          <button type="button" onClick={() => setUserPhoto(null)} className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80">
+                          <button type="button" onClick={() => setUserPhoto(null)} className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
                             <X className="w-3.5 h-3.5 text-white" />
                           </button>
                         </div>
@@ -791,23 +773,16 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                     </div>
 
                     <div>
-                      <label className="text-sm text-white/70 mb-3 block">Ou voulez-vous ajouter ce puzzle ?</label>
+                      <label className="text-sm text-white/70 mb-3 block">Ou ajouter ce puzzle ?</label>
                       <div className="grid grid-cols-2 gap-3">
                         {[
-                          { value: 'wishlist', emoji: '⭐', label: 'Wishlist', color: 'yellow' },
-                          { value: 'inbox', emoji: '📦', label: "Je l'ai chez moi", color: 'blue' },
-                          { value: 'in_progress', emoji: '🧩', label: 'En cours', color: 'orange' },
-                          { value: 'done', emoji: '✅', label: 'Termine', color: 'green' },
-                        ].map(({ value, emoji, label, color }) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setSelectedStatus(value)}
-                            className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                              selectedStatus === value
-                                ? `border-${color}-500 bg-${color}-500/20 text-${color}-400`
-                                : `border-white/10 bg-white/5 text-white/70 hover:border-${color}-500/50`
-                            }`}
+                          { value: 'wishlist', emoji: '⭐', label: 'Wishlist', active: 'border-yellow-500 bg-yellow-500/20 text-yellow-400' },
+                          { value: 'inbox', emoji: '📦', label: "Je l'ai chez moi", active: 'border-blue-500 bg-blue-500/20 text-blue-400' },
+                          { value: 'in_progress', emoji: '🧩', label: 'En cours', active: 'border-orange-500 bg-orange-500/20 text-orange-400' },
+                          { value: 'done', emoji: '✅', label: 'Termine', active: 'border-green-500 bg-green-500/20 text-green-400' },
+                        ].map(({ value, emoji, label, active }) => (
+                          <button key={value} type="button" onClick={() => setSelectedStatus(value)}
+                            className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${selectedStatus === value ? active : 'border-white/10 bg-white/5 text-white/70'}`}
                           >
                             <span className="text-3xl">{emoji}</span>
                             <span className="text-sm font-medium">{label}</span>
