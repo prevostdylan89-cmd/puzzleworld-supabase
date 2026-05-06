@@ -4,7 +4,7 @@ import { useLanguage } from '@/components/LanguageContext';
 import { Flame, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { useAuth } from '@/lib/AuthContext';
 import CreatePostForm from '@/components/social/CreatePostForm';
 import PostCard from '@/components/social/PostCard';
@@ -45,8 +45,8 @@ export default function Social() {
 
   const loadUser = async () => {
     try {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
     } catch {
       // not logged in
     }
@@ -59,39 +59,39 @@ export default function Social() {
     setHasMore(true);
 
     try {
-      if (isGuest) {
-        const { supabase } = await import('@/api/supabaseClient');
-        const sortColumn = activeTab === 'trending' ? 'likes_count' : 'created_date';
-        const { data } = await supabase
-          .from('posts')
-          .select('*')
-          .order(sortColumn, { ascending: false })
-          .limit(10);
-        setPosts(data || []);
-        setHasMore(false);
-        return;
-      }
-
       if (activeTab === 'following') {
         if (!user) { setIsLoading(false); return; }
-        const follows = await base44.entities.Follow.filter({ created_by: user.email });
-        const followingEmails = follows.map(f => f.following);
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('following')
+          .eq('created_by', user.email);
+        const followingEmails = (follows || []).map(f => f.following);
         if (followingEmails.length === 0) {
           setPosts([]);
           setHasMore(false);
+          setIsLoading(false);
           return;
         }
-        const allPosts = await base44.entities.Post.list('-created_date', 50);
-        const filtered = allPosts.filter(p => followingEmails.includes(p.created_by));
-        setPosts(filtered);
+        const { data: followedPosts } = await supabase
+          .from('posts')
+          .select('*')
+          .in('created_by', followingEmails)
+          .order('created_date', { ascending: false })
+          .limit(50);
+        setPosts(followedPosts || []);
         setHasMore(false);
+        setIsLoading(false);
         return;
       }
 
-      const sortBy = activeTab === 'trending' ? '-likes_count' : '-created_date';
-      const postsList = await base44.entities.Post.list(sortBy, POSTS_PER_PAGE, 0);
-      setPosts(postsList);
-      setHasMore(postsList.length === POSTS_PER_PAGE);
+      const sortColumn = activeTab === 'trending' ? 'likes_count' : 'created_date';
+      const { data } = await supabase
+        .from('posts')
+        .select('*')
+        .order(sortColumn, { ascending: false })
+        .range(0, POSTS_PER_PAGE - 1);
+      setPosts(data || []);
+      setHasMore((data || []).length === POSTS_PER_PAGE);
     } catch (error) {
       console.error('Error loading posts:', error);
     } finally {
@@ -104,9 +104,15 @@ export default function Social() {
     setIsLoading(true);
     const nextPage = page + 1;
     try {
-      const sortBy = activeTab === 'trending' ? '-likes_count' : '-created_date';
-      const morePosts = await base44.entities.Post.list(sortBy, POSTS_PER_PAGE, nextPage * POSTS_PER_PAGE);
-      if (morePosts.length > 0) {
+      const sortColumn = activeTab === 'trending' ? 'likes_count' : 'created_date';
+      const from = nextPage * POSTS_PER_PAGE;
+      const to = from + POSTS_PER_PAGE - 1;
+      const { data: morePosts } = await supabase
+        .from('posts')
+        .select('*')
+        .order(sortColumn, { ascending: false })
+        .range(from, to);
+      if ((morePosts || []).length > 0) {
         setPosts(prev => [...prev, ...morePosts]);
         setPage(nextPage);
         setHasMore(morePosts.length === POSTS_PER_PAGE);
@@ -196,12 +202,12 @@ export default function Social() {
                       <Loader2 className="w-6 h-6 text-orange-400 animate-spin" />
                     </div>
                   )}
-                  {!hasMore && posts.length > 0 && !isGuest && (
+                  {!hasMore && posts.length > 0 && (
                     <p className="text-white/40 text-sm text-center">{t('youveReachedEnd')}</p>
                   )}
                   {isGuest && posts.length > 0 && (
                     <div className="mt-4 p-5 bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-2xl text-center space-y-3">
-                      <p className="text-white font-semibold">🔓 Voir tous les posts de la communauté</p>
+                      <p className="text-white font-semibold">🔔 Voir tous les posts de la communauté</p>
                       <p className="text-white/50 text-sm">Créez un compte gratuit pour accéder à l'intégralité du fil, publier et interagir.</p>
                       <Button
                         onClick={() => window.location.href = '/login'}
