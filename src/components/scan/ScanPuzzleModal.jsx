@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/api/supabaseClient';
-import { searchAmazon, getProductByAsin } from '@/api/scraperApi';
+import { searchAmazon, getProductByAsin, normalizeEAN } from '@/api/scraperApi';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
@@ -116,7 +116,11 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
   };
 
   const fetchPuzzleData = async (code) => {
-    setBarcode(code);
+    // Normaliser l'EAN (14 chiffres → 13 chiffres si commence par 0)
+    const normalizedCode = normalizeEAN(code);
+    console.log(`EAN: ${code} → normalisé: ${normalizedCode}`);
+
+    setBarcode(normalizedCode);
     setLoading(true);
     setPuzzleData(null);
     setExistingPuzzle(null);
@@ -128,7 +132,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         const { data: userPuzzles } = await supabase
           .from('user_puzzles')
           .select('id')
-          .eq('puzzle_reference', code)
+          .eq('puzzle_reference', normalizedCode)
           .eq('created_by', user.email)
           .limit(1);
         if (userPuzzles && userPuzzles.length > 0) {
@@ -146,14 +150,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       let { data: catalogResults } = await supabase
         .from('puzzle_catalog')
         .select('*')
-        .eq('ean', code)
+        .eq('ean', normalizedCode)
         .limit(1);
 
       if (!catalogResults || catalogResults.length === 0) {
         const { data: asinResults } = await supabase
           .from('puzzle_catalog')
           .select('*')
-          .eq('asin', code)
+          .eq('asin', normalizedCode)
           .limit(1);
         catalogResults = asinResults;
       }
@@ -179,8 +183,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           pieces: catalogPuzzle.piece_count,
           piece_count: catalogPuzzle.piece_count,
           asin: catalogPuzzle.asin,
-          ean: catalogPuzzle.ean || code,
-          sku: catalogPuzzle.asin || code,
+          ean: catalogPuzzle.ean || normalizedCode,
+          sku: catalogPuzzle.asin || normalizedCode,
           category_tag: catalogPuzzle.category_tag,
           amazon_price: catalogPuzzle.amazon_price,
           amazon_rating: catalogPuzzle.amazon_rating,
@@ -203,19 +207,13 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       return;
     }
 
-    // ETAPE 4 : Recherche ScraperAPI
+    // ETAPE 4 : Recherche ScraperAPI intelligente
     try {
-      let searchData = await searchAmazon(code);
-      console.log('ScraperAPI response (EAN direct):', searchData);
+      // searchAmazon gère maintenant toute la cascade intelligente
+      const results = await searchAmazon(normalizedCode);
+      console.log('Résultats ScraperAPI:', results);
 
-      if (!searchData || searchData.length === 0) {
-        searchData = await searchAmazon(`puzzle ${code}`);
-        console.log('ScraperAPI response (puzzle + EAN):', searchData);
-      }
-
-      const results = searchData || [];
-
-      if (!results.length) {
+      if (!results || results.length === 0) {
         setScanMessage({ type: 'error', text: 'Puzzle non trouve sur Amazon. Ajoutez-le manuellement !' });
         setActiveTab('manual');
         setLoading(false);
@@ -225,12 +223,12 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       const item = results[0];
       await consumeCredit();
 
-      // ETAPE 5 : getProductByAsin pour récupérer marque + pièces + image HD
       let brand = item.brand || '';
       let pieces = null;
       let imageUrl = item.image || item.thumbnail || '';
       let title = item.name || item.title || '';
 
+      // ETAPE 5 : getProductByAsin pour données complètes
       if (item.asin) {
         try {
           const detail = await getProductByAsin(item.asin);
@@ -287,8 +285,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         pieces,
         piece_count: pieces,
         asin: item.asin || '',
-        ean: code,
-        sku: item.asin || code,
+        ean: normalizedCode,
+        sku: item.asin || normalizedCode,
         amazon_price: item.pricing || item.price?.value || null,
         amazon_rating: item.average_rating || item.rating || null,
         link: item.asin ? `https://www.amazon.com/dp/${item.asin}` : '',
