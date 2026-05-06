@@ -129,7 +129,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           .from('user_puzzles')
           .select('id')
           .eq('puzzle_reference', code)
-          .eq('created_by', user.id)
+          .eq('created_by', user.email)
           .limit(1);
         if (userPuzzles && userPuzzles.length > 0) {
           setScanMessage({ type: 'error', text: 'Vous possedez deja ce puzzle dans votre collection !' });
@@ -184,7 +184,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           category_tag: catalogPuzzle.category_tag,
           amazon_price: catalogPuzzle.amazon_price,
           amazon_rating: catalogPuzzle.amazon_rating,
-          link: catalogPuzzle.asin ? `https://www.amazon.fr/dp/${catalogPuzzle.asin}?tag=puzzleworld-21` : '',
+          link: catalogPuzzle.asin ? `https://www.amazon.com/dp/${catalogPuzzle.asin}` : '',
         };
         setPuzzleData(puzzleInfo);
         setLoading(false);
@@ -203,19 +203,19 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       return;
     }
 
-    // ETAPE 4 : Recherche ScraperAPI
+    // ETAPE 4 : Recherche Rainforest via proxy
     try {
-      let searchData = await searchAmazon(code);
-      console.log('ScraperAPI response (EAN direct):', searchData);
+      // Recherche par EAN direct
+      let results = await searchAmazon(code);
+      console.log('Rainforest search results:', results);
 
-      if (!searchData || searchData.length === 0) {
-        searchData = await searchAmazon(`puzzle ${code}`);
-        console.log('ScraperAPI response (puzzle + EAN):', searchData);
+      // Fallback : "puzzle " + EAN
+      if (!results || results.length === 0) {
+        results = await searchAmazon(`puzzle ${code}`);
+        console.log('Rainforest search fallback:', results);
       }
 
-      const results = searchData || [];
-
-      if (!results.length) {
+      if (!results || results.length === 0) {
         setScanMessage({ type: 'error', text: 'Puzzle non trouve sur Amazon. Ajoutez-le manuellement !' });
         setActiveTab('manual');
         setLoading(false);
@@ -225,59 +225,53 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       const item = results[0];
       await consumeCredit();
 
-      // ETAPE 5 : getProductByAsin pour récupérer marque + pièces + image HD
+      // Lecture des champs Rainforest search
       let brand = item.brand || '';
       let pieces = null;
-      let imageUrl = item.image || item.thumbnail || '';
-      let title = item.name || item.title || '';
+      let imageUrl = item.image?.link || item.thumbnail || '';
+      let title = item.title || item.name || '';
+      let asin = item.asin || '';
 
-      if (item.asin) {
+      // ETAPE 5 : getProductByAsin pour données complètes
+      if (asin) {
         try {
-          const detail = await getProductByAsin(item.asin);
-          console.log('ScraperAPI getProductByAsin:', detail);
+          const detail = await getProductByAsin(asin);
+          console.log('Rainforest product detail:', detail);
 
-          // Titre
-          if (detail?.name) title = detail.name;
-
-          // Marque depuis product_information (plus fiable)
-          if (detail?.product_information?.marque) {
-            brand = detail.product_information.marque;
-          } else if (detail?.brand) {
-            // Nettoyer "Visiter la boutique X" → "X"
-            brand = detail.brand.replace('Visiter la boutique ', '').trim();
-          }
+          if (detail?.title) title = detail.title;
+          if (detail?.brand) brand = detail.brand;
 
           // Image HD
-          if (detail?.high_res_images?.[0]) {
-            imageUrl = detail.high_res_images[0];
-          } else if (detail?.images?.[0]) {
-            imageUrl = detail.images[0];
+          if (detail?.main_image?.link) {
+            imageUrl = detail.main_image.link;
+          } else if (detail?.images?.[0]?.link) {
+            imageUrl = detail.images[0].link;
           }
 
-          // Pièces depuis product_information
-          const prodInfo = detail?.product_information || {};
-          const piecesEntry = Object.entries(prodInfo).find(([k, v]) =>
-            k.toLowerCase().includes('pi') ||
-            String(v).toLowerCase().includes('pièces') ||
-            String(v).toLowerCase().includes('pieces')
-          );
-          if (piecesEntry) {
-            const match = String(piecesEntry[1]).match(/(\d+)/);
-            if (match) pieces = parseInt(match[1]);
-          }
-
-          // Fallback : extraire depuis le titre (ex: "1500 Pièces")
-          if (!pieces) {
-            const titleMatch = title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/);
+          // Pièces depuis le titre
+          if (!pieces && detail?.title) {
+            const titleMatch = detail.title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/);
             if (titleMatch) pieces = parseInt(titleMatch[1].replace(/\s/g, ''));
           }
 
-          // Fallback : feature_bullets
+          // Fallback feature_bullets_flat
+          if (!pieces && detail?.feature_bullets_flat) {
+            const match = detail.feature_bullets_flat.match(/(\d+)\s*[Pp]i[èe]ces?/);
+            if (match) pieces = parseInt(match[1]);
+          }
+
+          // Fallback feature_bullets (tableau)
           if (!pieces && detail?.feature_bullets?.length) {
             for (const bullet of detail.feature_bullets) {
               const match = bullet.match(/(\d+)\s*[Pp]i[èe]ces?/);
               if (match) { pieces = parseInt(match[1]); break; }
             }
+          }
+
+          // Fallback titre original
+          if (!pieces) {
+            const titleMatch = title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/);
+            if (titleMatch) pieces = parseInt(titleMatch[1].replace(/\s/g, ''));
           }
 
         } catch (e) {
@@ -293,12 +287,12 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         image_hd: imageUrl,
         pieces,
         piece_count: pieces,
-        asin: item.asin || '',
+        asin,
         ean: code,
-        sku: item.asin || code,
-        amazon_price: item.pricing || item.price?.value || null,
-        amazon_rating: item.average_rating || item.rating || null,
-        link: item.asin ? `https://www.amazon.fr/dp/${item.asin}?tag=puzzleworld-21` : '',
+        sku: asin || code,
+        amazon_price: item.price?.value || null,
+        amazon_rating: item.rating || null,
+        link: asin ? `https://www.amazon.com/dp/${asin}` : '',
         isPending: true,
       };
 
@@ -307,7 +301,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       if (skipCollectionAdd && onPuzzleAdded) onPuzzleAdded(puzzleInfo);
 
     } catch (error) {
-      console.error('ScraperAPI error:', error);
+      console.error('Rainforest error:', error);
       setScanMessage({ type: 'error', text: 'Puzzle non trouve. Ajoutez-le manuellement !' });
       setActiveTab('manual');
       setLoading(false);
@@ -523,13 +517,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setActiveTab(isMobile ? 'scanner' : 'manual');
   };
 
-const handleBarcodeSubmit = async () => {
-  if (barcodeInput.length !== 13 && barcodeInput.length !== 14) {
-    toast.error('Le code-barres doit contenir 13 ou 14 chiffres');
-    return;
-  }
-  await fetchPuzzleData(barcodeInput);
-};
+  const handleBarcodeSubmit = async () => {
+    if (barcodeInput.length !== 13 && barcodeInput.length !== 14) {
+      toast.error('Le code-barres doit contenir 13 ou 14 chiffres');
+      return;
+    }
+    await fetchPuzzleData(barcodeInput);
+  };
+
   const handleManualModalSubmit = (newPuzzleData) => {
     setShowManualModal(false);
     setShowNotMyPuzzle(false);
@@ -608,11 +603,12 @@ const handleBarcodeSubmit = async () => {
                               Activer la Camera
                             </Button>
                             <div className="w-full max-w-sm">
-<div className="text-white/50 text-sm text-center mb-3">ou saisir le code-barres</div>
-<div className="flex gap-2">
-  <Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider" maxLength={14} />
-  <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 13 && barcodeInput.length !== 14} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50">OK</Button>
-</div>                            </div>
+                              <div className="text-white/50 text-sm text-center mb-3">ou saisir le code-barres</div>
+                              <div className="flex gap-2">
+                                <Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider" maxLength={14} />
+                                <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 13 && barcodeInput.length !== 14} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50">OK</Button>
+                              </div>
+                            </div>
                           </div>
                         )}
                         {cameraReady && (
@@ -660,7 +656,8 @@ const handleBarcodeSubmit = async () => {
                     <div className="text-center mb-6">
                       <Barcode className="w-16 h-16 text-orange-500 mx-auto mb-3" />
                       <h3 className="text-white text-lg font-semibold mb-1">Saisir le code-barres</h3>
-<p className="text-white/60 text-sm">Entrez les 13 ou 14 chiffres du code-barres</p>                    </div>
+                      <p className="text-white/60 text-sm">Entrez les 13 ou 14 chiffres du code-barres</p>
+                    </div>
                     <div className="bg-white/5 rounded-lg p-4 mb-4 border border-white/10">
                       <p className="text-white/70 text-xs text-center mb-3">Les chiffres se trouvent sous les barres :</p>
                       <div className="flex flex-col items-center gap-2">
@@ -676,8 +673,9 @@ const handleBarcodeSubmit = async () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
-<Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg" maxLength={14} disabled={loading} />
-<Button onClick={handleBarcodeSubmit} disabled={(barcodeInput.length !== 13 && barcodeInput.length !== 14) || loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6">                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'OK'}
+                      <Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg" maxLength={14} disabled={loading} />
+                      <Button onClick={handleBarcodeSubmit} disabled={(barcodeInput.length !== 13 && barcodeInput.length !== 14) || loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6">
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'OK'}
                       </Button>
                     </div>
                     {loading && (
@@ -757,6 +755,14 @@ const handleBarcodeSubmit = async () => {
                       <p className="text-white text-sm">{puzzleData.pieces ? `${puzzleData.pieces} pieces` : 'Non renseigne - utilisez Modifier'}</p>
                     )}
                   </div>
+                  {puzzleData.link && (
+                    <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+                      <label className="text-white/50 text-xs mb-1 block">Lien Amazon</label>
+                      <a href={puzzleData.link} target="_blank" rel="noopener noreferrer" className="text-orange-400 text-sm hover:text-orange-300 underline break-all">
+                        Voir sur Amazon
+                      </a>
+                    </div>
+                  )}
                 </motion.div>
 
                 {showNotMyPuzzle ? (
@@ -830,11 +836,10 @@ const handleBarcodeSubmit = async () => {
 
                     <div>
                       <label className="text-sm text-white/70 mb-3 block">Ou ajouter ce puzzle ?</label>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-3 gap-3">
                         {[
                           { value: 'wishlist', emoji: '⭐', label: 'Wishlist', active: 'border-yellow-500 bg-yellow-500/20 text-yellow-400' },
                           { value: 'inbox', emoji: '📦', label: "Je l'ai chez moi", active: 'border-blue-500 bg-blue-500/20 text-blue-400' },
-                          { value: 'in_progress', emoji: '🧩', label: 'En cours', active: 'border-orange-500 bg-orange-500/20 text-orange-400' },
                           { value: 'done', emoji: '✅', label: 'Termine', active: 'border-green-500 bg-green-500/20 text-green-400' },
                         ].map(({ value, emoji, label, active }) => (
                           <button key={value} type="button" onClick={() => setSelectedStatus(value)}
