@@ -1,4 +1,4 @@
-// scraperApi.js — ScraperAPI (Amazon.fr avec fallback us/com)
+// scraperApi.js — ScraperAPI (Amazon.com US)
 import { supabase } from './supabaseClient';
 
 const SCRAPER_BASE = 'https://api.scraperapi.com/structured/amazon/search';
@@ -20,44 +20,26 @@ export async function getScraperApiKey() {
   }
 }
 
-async function searchAmazonByCountry(query, key, countryCode) {
-  const url = `${SCRAPER_BASE}?api_key=${key}&query=${encodeURIComponent(query)}&country_code=${countryCode}`;
-  const response = await fetch(url);
-  if (!response.ok) return [];
-  const data = await response.json();
-  return data?.results ?? data?.organic_results ?? [];
-}
-
 export async function searchAmazon(query, apiKey) {
   let key = apiKey || await getScraperApiKey();
   if (!key) throw new Error('Clé ScraperAPI non configurée');
 
-  // Tentative 1 : Amazon.fr direct
-  let results = await searchAmazonByCountry(query, key, 'fr');
-  console.log('ScraperAPI Amazon.fr:', results.length, 'résultats');
+  // Tentative 1 : EAN direct sur Amazon.com
+  let url = `${SCRAPER_BASE}?api_key=${key}&query=${encodeURIComponent(query)}&country_code=us`;
+  let response = await fetch(url);
+  if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.status}`);
+  let data = await response.json();
+  console.log('ScraperAPI Amazon.com (us):', data);
+  let results = data?.results ?? data?.organic_results ?? [];
 
-  // Tentative 2 : Amazon.fr avec "puzzle " + query
+  // Tentative 2 : "puzzle " + EAN si aucun résultat
   if (results.length === 0) {
-    results = await searchAmazonByCountry('puzzle ' + query, key, 'fr');
-    console.log('ScraperAPI Amazon.fr fallback puzzle+query:', results.length, 'résultats');
-  }
-
-  // Tentative 3 : Amazon.com (US)
-  if (results.length === 0) {
-    results = await searchAmazonByCountry(query, key, 'us');
-    console.log('ScraperAPI Amazon.com (us):', results.length, 'résultats');
-  }
-
-  // Tentative 4 : Amazon.com avec "puzzle " + query
-  if (results.length === 0) {
-    results = await searchAmazonByCountry('puzzle ' + query, key, 'us');
-    console.log('ScraperAPI Amazon.com fallback puzzle+query:', results.length, 'résultats');
-  }
-
-  // Tentative 5 : Amazon.de (Allemagne — souvent bien fourni en puzzles européens)
-  if (results.length === 0) {
-    results = await searchAmazonByCountry(query, key, 'de');
-    console.log('ScraperAPI Amazon.de:', results.length, 'résultats');
+    url = `${SCRAPER_BASE}?api_key=${key}&query=${encodeURIComponent('puzzle ' + query)}&country_code=us`;
+    response = await fetch(url);
+    if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.status}`);
+    data = await response.json();
+    console.log('ScraperAPI Amazon.com fallback puzzle+query:', data);
+    results = data?.results ?? data?.organic_results ?? [];
   }
 
   return results;
@@ -67,16 +49,8 @@ export async function getProductByAsin(asin, apiKey) {
   let key = apiKey || await getScraperApiKey();
   if (!key) throw new Error('Clé ScraperAPI non configurée');
 
-  // Essai sur Amazon.fr d'abord, puis us si échec
-  let url = `${SCRAPER_PRODUCT_BASE}?api_key=${key}&asin=${asin}&country_code=fr`;
-  let response = await fetch(url);
-  
-  if (!response.ok) {
-    console.log('getProductByAsin fr échoué, tentative us...');
-    url = `${SCRAPER_PRODUCT_BASE}?api_key=${key}&asin=${asin}&country_code=us`;
-    response = await fetch(url);
-  }
-
+  const url = `${SCRAPER_PRODUCT_BASE}?api_key=${key}&asin=${asin}&country_code=us`;
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.status}`);
   const data = await response.json();
   console.log('ScraperAPI getProductByAsin response:', data);
