@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { Users, Trash2, Eye, MessageSquare, Loader2, Heart, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -29,7 +29,12 @@ export default function DashboardSocial() {
   const loadPosts = async () => {
     setLoading(true);
     try {
-      const allPosts = await base44.entities.Post.list('-created_date', 50);
+      const { data: allPosts, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_date', { ascending: false })
+        .limit(50);
+      if (error) throw error;
       setPosts(allPosts);
     } catch (error) {
       console.error('Error loading posts:', error);
@@ -43,7 +48,7 @@ export default function DashboardSocial() {
     if (!deletingPost) return;
 
     try {
-      await base44.entities.Post.delete(deletingPost.id);
+      await supabase.from('posts').delete().eq('id', deletingPost.id);
       toast.success('Post supprimé');
       setDeletingPost(null);
       loadPosts();
@@ -57,7 +62,11 @@ export default function DashboardSocial() {
     setLikesPost(post);
     setLoadingLikes(true);
     try {
-      const postLikes = await base44.entities.Like.filter({ post_id: post.id });
+      const { data: postLikes, error } = await supabase
+        .from('likes')
+        .select('*')
+        .eq('post_id', post.id);
+      if (error) throw error;
       setLikes(postLikes);
     } catch (e) {
       toast.error('Erreur chargement des likes');
