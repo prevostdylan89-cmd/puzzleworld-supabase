@@ -203,16 +203,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       return;
     }
 
-    // ETAPE 4 : Appel Rainforest API — recherche par EAN
+    // ETAPE 4 : Recherche ScraperAPI
     try {
-      // Tentative 1 : EAN direct
       let searchData = await searchAmazon(code);
-      console.log('Rainforest API response (EAN direct):', searchData);
+      console.log('ScraperAPI response (EAN direct):', searchData);
 
-      // Tentative 2 : "puzzle " + EAN si aucun résultat
       if (!searchData || searchData.length === 0) {
         searchData = await searchAmazon(`puzzle ${code}`);
-        console.log('Rainforest API response (puzzle + EAN):', searchData);
+        console.log('ScraperAPI response (puzzle + EAN):', searchData);
       }
 
       const results = searchData || [];
@@ -227,40 +225,69 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       const item = results[0];
       await consumeCredit();
 
-      // ETAPE 5 : Appel getProductByAsin pour récupérer marque + pièces
+      // ETAPE 5 : getProductByAsin pour récupérer marque + pièces + image HD
       let brand = item.brand || '';
       let pieces = null;
-      let imageUrl = item.image?.link || item.image || item.thumbnail || '';
+      let imageUrl = item.image || item.thumbnail || '';
+      let title = item.name || item.title || '';
 
       if (item.asin) {
         try {
           const detail = await getProductByAsin(item.asin);
-          console.log('Rainforest getProductByAsin:', detail);
+          console.log('ScraperAPI getProductByAsin:', detail);
 
-          brand = detail?.brand || brand;
-          imageUrl = detail?.main_image?.link || imageUrl;
+          // Titre
+          if (detail?.name) title = detail.name;
 
-          // Chercher le nombre de pièces dans les specifications
-          const specs = detail?.specifications || detail?.feature_bullets || [];
-          const piecesSpec = specs.find(s =>
-            s.name?.toLowerCase().includes('pièces') ||
-            s.name?.toLowerCase().includes('pieces') ||
-            s.name?.toLowerCase().includes('nombre') ||
-            s.value?.toLowerCase().includes('pièces') ||
-            s.value?.toLowerCase().includes('pieces')
+          // Marque depuis product_information (plus fiable)
+          if (detail?.product_information?.marque) {
+            brand = detail.product_information.marque;
+          } else if (detail?.brand) {
+            // Nettoyer "Visiter la boutique X" → "X"
+            brand = detail.brand.replace('Visiter la boutique ', '').trim();
+          }
+
+          // Image HD
+          if (detail?.high_res_images?.[0]) {
+            imageUrl = detail.high_res_images[0];
+          } else if (detail?.images?.[0]) {
+            imageUrl = detail.images[0];
+          }
+
+          // Pièces depuis product_information
+          const prodInfo = detail?.product_information || {};
+          const piecesEntry = Object.entries(prodInfo).find(([k, v]) =>
+            k.toLowerCase().includes('pi') ||
+            String(v).toLowerCase().includes('pièces') ||
+            String(v).toLowerCase().includes('pieces')
           );
-          if (piecesSpec) {
-            const match = piecesSpec.value?.match(/(\d+)/);
+          if (piecesEntry) {
+            const match = String(piecesEntry[1]).match(/(\d+)/);
             if (match) pieces = parseInt(match[1]);
           }
+
+          // Fallback : extraire depuis le titre (ex: "1500 Pièces")
+          if (!pieces) {
+            const titleMatch = title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/);
+            if (titleMatch) pieces = parseInt(titleMatch[1].replace(/\s/g, ''));
+          }
+
+          // Fallback : feature_bullets
+          if (!pieces && detail?.feature_bullets?.length) {
+            for (const bullet of detail.feature_bullets) {
+              const match = bullet.match(/(\d+)\s*[Pp]i[èe]ces?/);
+              if (match) { pieces = parseInt(match[1]); break; }
+            }
+          }
+
         } catch (e) {
           console.error('getProductByAsin error:', e);
         }
       }
 
       const puzzleInfo = {
-        name: item.title || '',
-        title: item.title || '',
+        name: title,
+        title,
         brand,
         image: imageUrl,
         image_hd: imageUrl,
@@ -269,8 +296,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         asin: item.asin || '',
         ean: code,
         sku: item.asin || code,
-        amazon_price: item.price?.value || null,
-        amazon_rating: item.rating || null,
+        amazon_price: item.pricing || item.price?.value || null,
+        amazon_rating: item.average_rating || item.rating || null,
         link: item.asin ? `https://www.amazon.fr/dp/${item.asin}?tag=puzzleworld-21` : '',
         isPending: true,
       };
@@ -280,7 +307,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       if (skipCollectionAdd && onPuzzleAdded) onPuzzleAdded(puzzleInfo);
 
     } catch (error) {
-      console.error('Rainforest API error:', error);
+      console.error('ScraperAPI error:', error);
       setScanMessage({ type: 'error', text: 'Puzzle non trouve. Ajoutez-le manuellement !' });
       setActiveTab('manual');
       setLoading(false);
