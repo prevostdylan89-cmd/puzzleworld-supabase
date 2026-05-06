@@ -422,7 +422,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
             status,
             rating: rating || null,
             progress_photo: photo || null,
-            created_by: user.id,
+            created_by: user.email,
           }])
           .select()
           .single();
@@ -442,7 +442,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
             seconds: speedRecord.seconds,
             total_seconds: speedRecord.total_seconds,
             record_date: new Date().toISOString().split('T')[0],
-            created_by: user.id,
+            created_by: user.email,
           }]);
         }
 
