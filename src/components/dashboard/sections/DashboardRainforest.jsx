@@ -271,7 +271,7 @@ export default function DashboardRainforest() {
               rel="noopener noreferrer"
               className="text-orange-400 hover:underline"
             >
-              dashboard.scraperapi.com → API Key
+              dashboard.scraperapi.com
             </a>
           </p>
           <div className="flex gap-2">
