@@ -47,6 +47,25 @@ export default function BulkAddPuzzles({ onClose }) {
     });
   };
 
+  const parseCSVLine = (line, separator) => {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === separator && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
   const handleCSVImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -60,14 +79,14 @@ export default function BulkAddPuzzles({ onClose }) {
         return;
       }
 
-      // Détecter le séparateur (virgule ou point-virgule)
       const separator = lines[0].includes(";") ? ";" : ",";
+      const headers = parseCSVLine(lines[0], separator).map(h => h.toLowerCase().replace(/"/g, ""));
 
-      // Lire l'entête
-      const headers = lines[0].split(separator).map(h => h.trim().toLowerCase().replace(/"/g, ""));
-
-      const titleIndex = headers.findIndex(h => h.includes("titre") || h.includes("title"));
+      const titleIndex  = headers.findIndex(h => h.includes("titre") || h.includes("title"));
       const amazonIndex = headers.findIndex(h => h.includes("amazon") || h.includes("lien"));
+      const asinIndex   = headers.findIndex(h => h.includes("asin"));
+      const brandIndex  = headers.findIndex(h => h.includes("marque") || h.includes("brand"));
+      const imageIndex  = headers.findIndex(h => h.includes("image"));
 
       if (titleIndex === -1) {
         toast.error("Colonne 'titre' introuvable dans le CSV");
@@ -75,11 +94,14 @@ export default function BulkAddPuzzles({ onClose }) {
       }
 
       const newRows = lines.slice(1).map(line => {
-        const cols = line.split(separator).map(c => c.trim().replace(/"/g, ""));
+        const cols = parseCSVLine(line, separator).map(c => c.replace(/"/g, ""));
         return {
           ...EMPTY_ROW(),
-          title:       cols[titleIndex] || "",
+          title:       titleIndex !== -1  ? (cols[titleIndex] || "")  : "",
           amazon_link: amazonIndex !== -1 ? (cols[amazonIndex] || "") : "",
+          asin:        asinIndex !== -1   ? (cols[asinIndex] || "")   : "",
+          brand:       brandIndex !== -1  ? (cols[brandIndex] || "")  : "",
+          image_hd:    imageIndex !== -1  ? (cols[imageIndex] || "")  : "",
         };
       }).filter(r => r.title.trim());
 
@@ -338,7 +360,7 @@ export default function BulkAddPuzzles({ onClose }) {
       </div>
 
       <p style={{ fontSize: "11px", opacity: 0.45, marginTop: "8px" }}>
-        Astuce : CSV avec colonnes "titre" et "lien_amazon" (séparateur virgule ou point-virgule) · ou colle depuis Google Sheets
+        Astuce : CSV avec colonnes "titre", "asin", "marque", "image", "lien amazon" (séparateur virgule ou point-virgule) · ou colle depuis Google Sheets
       </p>
     </div>
   );
