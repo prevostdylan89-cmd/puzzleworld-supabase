@@ -133,16 +133,8 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
     }
     setAddingStatus(status);
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        toast.error('Utilisateur non connecté');
-        setAddingStatus(null);
-        return;
-      }
-
       const { error } = await supabase.from('user_puzzles').insert({
-        user_id: authUser.id,
-        created_by: authUser.email,
+        created_by: user.email,
         catalog_puzzle_id: puzzle.id || null,
         puzzle_name: puzzle.title,
         puzzle_brand: puzzle.brand || null,
