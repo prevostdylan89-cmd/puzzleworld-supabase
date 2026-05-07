@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { X, ExternalLink, Bookmark, BookmarkCheck, Package, Star, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { base44 } from '@/api/supabaseClient';
+import { base44, supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 export default function PuzzleDetailClickable({ puzzleReference, onClose }) {
@@ -49,12 +49,14 @@ export default function PuzzleDetailClickable({ puzzleReference, onClose }) {
   const checkWishlistStatus = async (puzzleData) => {
     if (!user) return;
     try {
-      const wishlist = await base44.entities.UserPuzzle.filter({
-        puzzle_reference: puzzleData.asin,
-        created_by: user.email,
-        status: 'wishlist'
-      });
-      setIsInWishlist(wishlist.length > 0);
+      const { data } = await supabase
+        .from('user_puzzles')
+        .select('id')
+        .eq('puzzle_reference', puzzleData.asin)
+        .eq('created_by', user.email)
+        .eq('status', 'wishlist')
+        .limit(1);
+      setIsInWishlist(data && data.length > 0);
     } catch (error) {
       console.error('Error checking wishlist:', error);
     }
@@ -67,25 +69,29 @@ export default function PuzzleDetailClickable({ puzzleReference, onClose }) {
     }
     try {
       if (isInWishlist) {
-        const wishlist = await base44.entities.UserPuzzle.filter({
-          puzzle_reference: puzzle.asin,
-          created_by: user.email,
-          status: 'wishlist'
-        });
-        if (wishlist.length > 0) {
-          await base44.entities.UserPuzzle.delete(wishlist[0].id);
+        const { data } = await supabase
+          .from('user_puzzles')
+          .select('id')
+          .eq('puzzle_reference', puzzle.asin)
+          .eq('created_by', user.email)
+          .eq('status', 'wishlist')
+          .limit(1);
+        if (data && data.length > 0) {
+          await supabase.from('user_puzzles').delete().eq('id', data[0].id);
           setIsInWishlist(false);
           toast.success('Retiré de la wishlist');
         }
       } else {
-        await base44.entities.UserPuzzle.create({
+        const { error } = await supabase.from('user_puzzles').insert({
+          created_by: user.email,
           puzzle_name: puzzle.title,
-          puzzle_brand: puzzle.brand || '',
-          puzzle_pieces: puzzle.piece_count || 0,
-          puzzle_reference: puzzle.asin,
-          image: puzzle.image_hd || '',
-          status: 'wishlist'
+          puzzle_brand: puzzle.brand || null,
+          puzzle_pieces: puzzle.piece_count || null,
+          puzzle_reference: puzzle.asin || null,
+          image_url: puzzle.image_hd || null,
+          status: 'wishlist',
         });
+        if (error) throw error;
         setIsInWishlist(true);
         toast.success('Ajouté à la wishlist!');
       }
