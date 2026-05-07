@@ -330,6 +330,7 @@ export default function BulkAddPuzzles({ onClose }) {
                             borderColor: c.required && !row[c.key] && row.status === "error"
                               ? "rgba(239,68,68,0.6)" : undefined
                           }}
+                          onPaste={e => e.stopPropagation()}
                           onKeyDown={e => {
                             if (e.key === "Enter") {
                               if (i === rows.length - 1) addRow();
