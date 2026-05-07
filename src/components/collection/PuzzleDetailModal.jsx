@@ -149,7 +149,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
         puzzle_pieces: puzzle.piece_count || null,
         image_url: puzzle.image_hd || null,
         puzzle_reference: puzzle.asin || puzzle.ean || null,
-        amazon_link: puzzle.amazon_link || null,
         status,
         end_date: status === 'done' ? new Date().toISOString().split('T')[0] : null,
       });
