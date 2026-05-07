@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { base44 } from '@/api/supabaseClient';
+import { base44, supabase } from '@/api/supabaseClient';
 import { Sparkles, Loader2, RefreshCw, MoreVertical, X, Plus, ChevronDown, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import PuzzleDetailModal from '@/components/collection/PuzzleDetailModal';
@@ -37,7 +37,6 @@ function DiscoveryPuzzleCard({ puzzle, onAddToCollection, onClick, selectionMode
       }`}
       onClick={onClick}
     >
-      {/* Selection checkbox */}
       {selectionMode && (
         <div className="absolute top-2 left-2 z-10">
           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
@@ -149,11 +148,8 @@ export default function DiscoverySection({ globalPuzzles }) {
 
       const userPuzzles = await base44.entities.UserPuzzle.filter({ created_by: currentUser.email });
 
-      // If user has no puzzles, show a varied selection from catalog
       if (userPuzzles.length === 0) {
         const validPuzzles = catalogPuzzles.filter(p => p.piece_count >= 500);
-        const brandMap = {};
-        validPuzzles.forEach(p => { if (p.brand) brandMap[p.brand] = (brandMap[p.brand] || []); brandMap[p.brand].push(p); });
         const variedSelection = shuffle(validPuzzles).slice(0, 30);
         setDiscovery({
           topBrand: null, topPieceBucket: null, topCategory: null,
@@ -166,7 +162,6 @@ export default function DiscoverySection({ globalPuzzles }) {
         return;
       }
 
-      // Exclude already owned
       const ownedRefs = new Set(userPuzzles.map(p => p.puzzle_reference).filter(Boolean));
       const ownedNames = new Set(userPuzzles.map(p => p.puzzle_name?.toLowerCase().trim()).filter(Boolean));
       const available = catalogPuzzles.filter(p => {
@@ -175,24 +170,17 @@ export default function DiscoverySection({ globalPuzzles }) {
         return true;
       });
 
-      // Top brand
       const topBrand = getTopValue(userPuzzles, 'puzzle_brand');
-
-      // Top category
       const topCategory = getTopValue(userPuzzles, 'puzzle_category') || getTopValue(userPuzzles, 'category_tag');
-
-      // User known brands & piece counts
       const userBrands = new Set(userPuzzles.map(p => p.puzzle_brand?.toLowerCase().trim()).filter(Boolean));
       const userPieceCounts = new Set(userPuzzles.map(p => p.puzzle_pieces).filter(Boolean));
 
-      // 1. Top brand (10)
       const brandPuzzles = shuffle(
         available.filter(p => topBrand && p.brand?.toLowerCase().includes(topBrand.toLowerCase()))
       ).slice(0, 10);
 
       const usedIds = new Set(brandPuzzles.map(p => p.id));
 
-      // 2. Varied piece counts ≥500, 5 puzzles with different piece counts
       const piecePool = shuffle(available.filter(p => {
         if (usedIds.has(p.id)) return false;
         if (!p.piece_count || p.piece_count < 500) return false;
@@ -209,7 +197,6 @@ export default function DiscoverySection({ globalPuzzles }) {
       }
       piecePuzzles.forEach(p => usedIds.add(p.id));
 
-      // 3. Top category (5)
       const catPuzzles = shuffle(
         available.filter(p => {
           if (usedIds.has(p.id)) return false;
@@ -219,7 +206,6 @@ export default function DiscoverySection({ globalPuzzles }) {
       ).slice(0, 5);
       catPuzzles.forEach(p => usedIds.add(p.id));
 
-      // 4. Nouveaux horizons (10) - brand unknown to user + min 500 pieces
       const discoveryPuzzles = shuffle(
         available.filter(p => {
           if (usedIds.has(p.id)) return false;
@@ -232,12 +218,8 @@ export default function DiscoverySection({ globalPuzzles }) {
       ).slice(0, 10);
 
       setDiscovery({
-        topBrand,
-        topCategory,
-        brandPuzzles,
-        piecePuzzles,
-        catPuzzles,
-        discoveryPuzzles,
+        topBrand, topCategory,
+        brandPuzzles, piecePuzzles, catPuzzles, discoveryPuzzles,
         isGeneric: false,
         total: brandPuzzles.length + piecePuzzles.length + catPuzzles.length + discoveryPuzzles.length,
       });
@@ -251,7 +233,6 @@ export default function DiscoverySection({ globalPuzzles }) {
     if (globalPuzzles.length > 0) buildDiscovery(globalPuzzles);
   }, [globalPuzzles.length]);
 
-  // Real-time: rebuild discovery whenever user adds/updates/deletes a puzzle
   useEffect(() => {
     if (globalPuzzles.length === 0) return;
     const unsubscribe = base44.entities.UserPuzzle.subscribe(() => {
@@ -260,13 +241,12 @@ export default function DiscoverySection({ globalPuzzles }) {
     return () => unsubscribe();
   }, [globalPuzzles.length]);
 
-  // Midnight refresh
   useEffect(() => {
     if (globalPuzzles.length === 0) return;
     const scheduleNextMidnight = () => {
       const now = new Date();
       const next = new Date(now);
-      next.setHours(24, 0, 0, 0); // next midnight
+      next.setHours(24, 0, 0, 0);
       return setTimeout(() => {
         buildDiscovery(globalPuzzles);
         const daily = setInterval(() => buildDiscovery(globalPuzzles), 24 * 60 * 60 * 1000);
@@ -279,18 +259,31 @@ export default function DiscoverySection({ globalPuzzles }) {
 
   const addToMyCollection = async (puzzle, status = 'inbox') => {
     if (!user) { toast.error('Connectez-vous pour ajouter à votre collection'); return; }
-    const existing = await base44.entities.UserPuzzle.filter({ created_by: user.email, puzzle_reference: puzzle.asin || puzzle.id });
-    if (existing.length > 0) { toast.info('Ce puzzle est déjà dans votre collection'); return; }
-    await base44.entities.UserPuzzle.create({
-      puzzle_name: puzzle.title,
-      puzzle_brand: puzzle.brand || '',
-      puzzle_pieces: puzzle.piece_count || 0,
-      puzzle_reference: puzzle.asin || puzzle.id,
-      image: puzzle.image_hd || '',
-      status
-    });
-    const labels = { wishlist: 'wishlist', inbox: 'collection', done: 'terminés' };
-    toast.success(`Ajouté en ${labels[status]} !`);
+    try {
+      const { data: existing } = await supabase
+        .from('user_puzzles')
+        .select('id')
+        .eq('created_by', user.email)
+        .eq('puzzle_reference', puzzle.asin || puzzle.id)
+        .limit(1);
+      if (existing && existing.length > 0) { toast.info('Ce puzzle est déjà dans votre collection'); return; }
+      const { error } = await supabase.from('user_puzzles').insert({
+        created_by: user.email,
+        catalog_puzzle_id: puzzle.id || null,
+        puzzle_name: puzzle.title,
+        puzzle_brand: puzzle.brand || null,
+        puzzle_pieces: puzzle.piece_count || null,
+        puzzle_reference: puzzle.asin || puzzle.id || null,
+        image_url: puzzle.image_hd || null,
+        status,
+      });
+      if (error) throw error;
+      const labels = { wishlist: 'wishlist', inbox: 'Dans sa boîte', done: 'Terminé' };
+      toast.success(`Ajouté en ${labels[status]} !`);
+    } catch (e) {
+      console.error(e);
+      toast.error('Erreur lors de l\'ajout');
+    }
   };
 
   const allDiscoveryPuzzles = discovery ? [
@@ -306,20 +299,30 @@ export default function DiscoverySection({ globalPuzzles }) {
     const puzzles = allDiscoveryPuzzles.filter(p => selectedIds.has(p.id));
     let added = 0;
     for (const puzzle of puzzles) {
-      const existing = await base44.entities.UserPuzzle.filter({ created_by: user.email, puzzle_reference: puzzle.asin || puzzle.id });
-      if (existing.length === 0) {
-        await base44.entities.UserPuzzle.create({
+      try {
+        const { data: existing } = await supabase
+          .from('user_puzzles')
+          .select('id')
+          .eq('created_by', user.email)
+          .eq('puzzle_reference', puzzle.asin || puzzle.id)
+          .limit(1);
+        if (existing && existing.length > 0) continue;
+        const { error } = await supabase.from('user_puzzles').insert({
+          created_by: user.email,
+          catalog_puzzle_id: puzzle.id || null,
           puzzle_name: puzzle.title,
-          puzzle_brand: puzzle.brand || '',
-          puzzle_pieces: puzzle.piece_count || 0,
-          puzzle_reference: puzzle.asin || puzzle.id,
-          image: puzzle.image_hd || '',
-          status
+          puzzle_brand: puzzle.brand || null,
+          puzzle_pieces: puzzle.piece_count || null,
+          puzzle_reference: puzzle.asin || puzzle.id || null,
+          image_url: puzzle.image_hd || null,
+          status,
         });
-        added++;
+        if (!error) added++;
+      } catch (e) {
+        console.error(e);
       }
     }
-    const labels = { wishlist: 'wishlist', inbox: 'collection', done: 'terminés' };
+    const labels = { wishlist: 'wishlist', inbox: 'Dans sa boîte', done: 'Terminé' };
     if (added > 0) toast.success(`${added} puzzle${added > 1 ? 's' : ''} ajouté${added > 1 ? 's' : ''} en ${labels[status]} !`);
     else toast.info('Ces puzzles sont déjà dans votre collection');
     setAddingToCollection(false);
@@ -365,7 +368,6 @@ export default function DiscoverySection({ globalPuzzles }) {
 
   return (
     <div className="py-6">
-      {/* Selection bar portal */}
       {selectionMode && createPortal(
         <div className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 bg-orange-500 shadow-xl shadow-orange-500/30 rounded-full px-3 py-2">
           <button onClick={() => { setSelectionMode(false); setSelectedIds(new Set()); }} className="text-white/80 hover:text-white transition-colors">
