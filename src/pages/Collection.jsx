@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { createPageUrl } from '@/utils';
 import { useLanguage } from '@/components/LanguageContext';
-import { base44 } from '@/api/supabaseClient';
+import { base44, supabase } from '@/api/supabaseClient';
 import { useQuery } from '@tanstack/react-query';
 import PuzzleDetailModal from '@/components/collection/PuzzleDetailModal';
 import ReclassifyButton from '@/components/collection/ReclassifyButton';
@@ -183,11 +183,9 @@ export default function Collection() {
   const [viewMode, setViewMode] = useState('grid');
   const [categoryFilters, setCategoryFilters] = useState(DEFAULT_categoryFilters);
 
-  // Multi-select state (lifted here so bar is fixed to page)
   const [isMultiSelect, setIsMultiSelect] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // Load categories from DB
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -209,7 +207,6 @@ export default function Collection() {
     loadCategories();
   }, [isGuest]);
 
-
   const [minPieces, setMinPieces] = useState('');
   const [maxPieces, setMaxPieces] = useState('');
   const [selectedPuzzle, setSelectedPuzzle] = useState(null);
@@ -217,18 +214,15 @@ export default function Collection() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedBrand, setSelectedBrand] = useState('all');
   const [showDiscovery, setShowDiscovery] = useState(false);
-  const [userOwnedMap, setUserOwnedMap] = useState({}); // { puzzle_reference: status }
+  const [userOwnedMap, setUserOwnedMap] = useState({});
 
-  // Load user's owned puzzles to show badges on community catalog
   useEffect(() => {
     base44.auth.me().then(user => {
       if (!user) return;
       base44.entities.UserPuzzle.filter({ created_by: user.email }).then(puzzles => {
         const map = {};
         puzzles.forEach(p => {
-          // Match by ASIN/reference (primary key)
           if (p.puzzle_reference) map[`ref:${p.puzzle_reference}`] = p.status;
-          // Match by name as fallback
           if (p.puzzle_name) map[`name:${p.puzzle_name.toLowerCase().trim()}`] = p.status;
         });
         setUserOwnedMap(map);
@@ -244,23 +238,30 @@ export default function Collection() {
       const newMapEntries = {};
       for (const puzzle of puzzles) {
         const ref = puzzle.asin || puzzle.id;
-        const existing = await base44.entities.UserPuzzle.filter({ created_by: user.email, puzzle_reference: ref });
-        if (existing.length === 0) {
-          await base44.entities.UserPuzzle.create({
+        const { data: existing } = await supabase
+          .from('user_puzzles')
+          .select('id')
+          .eq('created_by', user.email)
+          .eq('puzzle_reference', ref)
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          const { error } = await supabase.from('user_puzzles').insert({
+            created_by: user.email,
+            catalog_puzzle_id: puzzle.id || null,
             puzzle_name: puzzle.title,
-            puzzle_brand: puzzle.brand || '',
-            puzzle_pieces: puzzle.piece_count || 0,
-            puzzle_reference: ref,
-            image: puzzle.image_hd || '',
-            status
+            puzzle_brand: puzzle.brand || null,
+            puzzle_pieces: puzzle.piece_count || null,
+            puzzle_reference: ref || null,
+            image_url: puzzle.image_hd || null,
+            status,
           });
-          added++;
-          // Track for immediate local update
-          newMapEntries[`ref:${ref}`] = status;
-          if (puzzle.title) newMapEntries[`name:${puzzle.title.toLowerCase().trim()}`] = status;
+          if (!error) {
+            added++;
+            newMapEntries[`ref:${ref}`] = status;
+            if (puzzle.title) newMapEntries[`name:${puzzle.title.toLowerCase().trim()}`] = status;
+          }
         }
       }
-      // Immediately update the badge map so UI reflects the change without waiting for reload
       if (Object.keys(newMapEntries).length > 0) {
         setUserOwnedMap(prev => ({ ...prev, ...newMapEntries }));
       }
@@ -272,14 +273,13 @@ export default function Collection() {
     }
   }, []);
 
-  // Fetch puzzles from global catalog
   const { data: globalPuzzles = [], isLoading, refetch } = useQuery({
     queryKey: ['globalPuzzles', isGuest],
     queryFn: async () => {
       const puzzles = await base44.entities.PuzzleCatalog.filter({ status: 'active' }, '-created_date', 500);
       return puzzles;
     },
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -294,7 +294,6 @@ export default function Collection() {
     }
   }, [globalPuzzles]);
 
-  // Known brands from the catalog
   const KNOWN_BRANDS = ['Ravensburger', 'Clementoni', 'Jumbo', 'Trefl', 'Educa', 'Schmidt', 'Castorland', 'Heye', 'Cobble Hill', 'Buffalo Games', 'Ceaco', 'Epoch', 'MB', 'Nathan', 'Dino', 'Wrebbit', 'Helvetiq', 'AveJoys'];
 
   const brandOptions = React.useMemo(() => {
@@ -323,7 +322,6 @@ export default function Collection() {
     setSelectedBrand('all');
   };
 
-  // Filter puzzles
   const filteredPuzzles = globalPuzzles.filter(puzzle => {
     const matchesSearch = puzzle.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           puzzle.brand?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -334,11 +332,9 @@ export default function Collection() {
     const matchesBrand = selectedBrand === 'all'
       || (selectedBrand === '__unknown__' && !puzzleBrand)
       || (selectedBrand !== '__unknown__' && puzzleBrand.toLowerCase().includes(selectedBrand.toLowerCase()));
-    
     return matchesSearch && matchesMinPieces && matchesMaxPieces && matchesCategory && matchesBrand;
   });
 
-  // Sort puzzles
   const sortedPuzzles = [...filteredPuzzles].sort((a, b) => {
     switch(sortBy) {
       case 'newest':
@@ -356,7 +352,6 @@ export default function Collection() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
       <div className="sticky top-0 lg:top-0 z-30 bg-[#000019]/80 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="px-4 lg:px-8 py-3 lg:py-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
@@ -367,7 +362,6 @@ export default function Collection() {
               </p>
             </div>
 
-            {/* Search & Actions */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1 lg:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -390,7 +384,6 @@ export default function Collection() {
                     <SheetTitle className="text-white">{t('filters')}</SheetTitle>
                   </SheetHeader>
                   <div className="mt-6 space-y-6">
-                    {/* Piece Count Min/Max */}
                     <div>
                       <label className="text-sm text-white/70 mb-3 block">{t('pieceCount')}</label>
                       <div className="grid grid-cols-2 gap-3">
@@ -419,7 +412,6 @@ export default function Collection() {
                       </div>
                     </div>
 
-                    {/* Brand Filter */}
                     <div>
                       <label className="text-sm text-white/70 mb-3 block">{t('brandFilter')}</label>
                       <div className="flex flex-wrap gap-2">
@@ -460,7 +452,6 @@ export default function Collection() {
                 </SheetContent>
               </Sheet>
 
-              {/* View Mode Toggle */}
               <div className="hidden lg:flex bg-white/5 border border-white/10 rounded-lg p-1">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -482,9 +473,7 @@ export default function Collection() {
             </div>
           </div>
 
-          {/* Category Filters — desktop: scroll horizontal / mobile: select dropdown */}
           <div className="mt-3 mb-1">
-            {/* Mobile: dropdown select */}
             <div className="flex flex-col gap-2 lg:hidden">
               <Button
                 variant="outline"
@@ -527,7 +516,6 @@ export default function Collection() {
               </div>}
             </div>
 
-            {/* Desktop: scroll horizontal */}
             <div className="hidden lg:block relative mt-2">
               <div className="absolute left-0 top-0 bottom-2 w-8 bg-gradient-to-r from-[#000019] to-transparent pointer-events-none z-10"></div>
               <div className="absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-[#000019] to-transparent pointer-events-none z-10"></div>
@@ -550,7 +538,6 @@ export default function Collection() {
             </div>
           </div>
 
-          {/* Sort Options — desktop only */}
           <div className="hidden lg:flex items-center justify-between mt-4">
             <div className="flex items-center gap-2 text-sm text-white/50">
               <Puzzle className="w-4 h-4" />
@@ -591,16 +578,11 @@ export default function Collection() {
         </div>
       </div>
 
-
-
-      {/* Discovery Section */}
       {showDiscovery && !isLoading && globalPuzzles.length > 0 && (
         <DiscoverySection globalPuzzles={globalPuzzles} />
       )}
 
-      {/* Puzzle Grid */}
       {!showDiscovery && <div className="px-4 lg:px-8 py-6">
-
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 text-orange-400 animate-spin" />
@@ -664,7 +646,6 @@ export default function Collection() {
             </motion.div>
           )}
 
-          {/* Load More */}
           <div className="flex justify-center mt-12">
             <Button 
               onClick={() => {
@@ -685,7 +666,6 @@ export default function Collection() {
         puzzle={selectedPuzzle}
       />
 
-      {/* Floating multi-select bar */}
       {isMultiSelect && createPortal(
         <div className="fixed bottom-20 left-0 right-0 z-[9990] flex justify-center px-4" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <motion.div
@@ -743,143 +723,136 @@ export default function Collection() {
   );
 }
 
+function CommunityPuzzleCard({ puzzle, index, variant, onClick, onAddToCollection, ownedStatus, isMultiSelect, isSelected, onToggleSelect, onEnterMultiSelect }) {
+  const { t } = useLanguage();
+  const [showContextMenu, setShowContextMenu] = useState(false);
 
-        function CommunityPuzzleCard({ puzzle, index, variant, onClick, onAddToCollection, ownedStatus, isMultiSelect, isSelected, onToggleSelect, onEnterMultiSelect }) {
-        const { t } = useLanguage();
-        const [showContextMenu, setShowContextMenu] = useState(false);
-
-        return (
-        <>
-        <motion.div
-          variants={item}
-          onClick={onClick}
-          className={`relative bg-white/[0.03] border rounded-xl overflow-hidden transition-all group cursor-pointer ${
-            isSelected
-              ? 'border-orange-500 ring-2 ring-orange-500/40'
-              : 'border-white/[0.06] hover:border-orange-500/30'
-          }`}
-        >
-          {/* Multi-select checkbox overlay */}
-          {isMultiSelect && (
-            <div className={`absolute top-1.5 left-1.5 z-20 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-              isSelected ? 'bg-orange-500 border-orange-500' : 'bg-black/40 border-white/50'
-            }`}>
-              {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
-            </div>
-          )}
-
-          {/* 3 dots button — always visible on mobile, hover on desktop */}
-          {!isMultiSelect && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowContextMenu(true); }}
-              className="absolute top-1.5 right-1.5 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
-            >
-              <MoreVertical className="w-3.5 h-3.5 text-white" />
-            </button>
-          )}
-
-          {/* Owned badge */}
-          {ownedStatus && !isMultiSelect && (
-            <div className="absolute top-2 left-2 z-10">
-              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg backdrop-blur-sm border ${
-                ownedStatus === 'done'
-                  ? 'bg-green-500 border-green-400 text-white'
-                  : ownedStatus === 'wishlist'
-                  ? 'bg-yellow-500 border-yellow-400 text-white'
-                  : 'bg-blue-500 border-blue-400 text-white'
-              }`}>
-                <span>{ownedStatus === 'done' ? '🏆' : ownedStatus === 'wishlist' ? '⭐' : '📦'}</span>
-                <span className="hidden lg:inline">{ownedStatus === 'done' ? t('completed2') : ownedStatus === 'wishlist' ? 'Wishlist' : t('myBox')}</span>
-              </div>
-            </div>
-          )}
-
-          <div className={`${variant === 'large' ? 'aspect-[4/3]' : 'aspect-[3/4]'} overflow-hidden bg-white/5`}>
-            {puzzle.image_hd ? (
-              <img
-                src={puzzle.image_hd}
-                alt={puzzle.title}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Puzzle className="w-8 h-8 text-white/20" />
-              </div>
-            )}
+  return (
+    <>
+      <motion.div
+        variants={item}
+        onClick={onClick}
+        className={`relative bg-white/[0.03] border rounded-xl overflow-hidden transition-all group cursor-pointer ${
+          isSelected
+            ? 'border-orange-500 ring-2 ring-orange-500/40'
+            : 'border-white/[0.06] hover:border-orange-500/30'
+        }`}
+      >
+        {isMultiSelect && (
+          <div className={`absolute top-1.5 left-1.5 z-20 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+            isSelected ? 'bg-orange-500 border-orange-500' : 'bg-black/40 border-white/50'
+          }`}>
+            {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
           </div>
-          <div className="p-2 lg:p-3">
-            <h3 className="text-white text-[11px] lg:text-sm font-semibold line-clamp-2 mb-0.5 leading-tight">
-              {puzzle.title}
-            </h3>
-            <div className="flex items-center justify-between text-[10px] lg:text-xs text-white/40">
-              <span className="truncate max-w-[60%]">{puzzle.brand || ''}</span>
-              <span>{puzzle.piece_count} pcs</span>
-            </div>
-            {puzzle.wishlistCount > 0 && (
-              <div className="flex items-center gap-2 mt-1 text-[10px]">
-                <span className="text-orange-400">⭐ {puzzle.wishlistCount}</span>
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Context menu (3 dots) — compact bottom sheet */}
-        {showContextMenu && createPortal(
-          <>
-            <div className="fixed inset-0 z-[9998]" onClick={() => setShowContextMenu(false)} />
-            <div className="fixed bottom-20 left-0 right-0 z-[9999] flex justify-center px-4">
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: 'spring', damping: 22, stiffness: 300 }}
-                className="w-full max-w-sm bg-[#0d0d35] border border-white/15 rounded-2xl overflow-hidden shadow-2xl"
-              >
-                {/* Compact puzzle header */}
-                <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-white/10">
-                  {puzzle.image_hd && (
-                    <img src={puzzle.image_hd} alt={puzzle.title} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                  )}
-                  <p className="text-white text-xs font-semibold line-clamp-1 flex-1">{puzzle.title}</p>
-                  <button onClick={() => setShowContextMenu(false)} className="w-5 h-5 flex items-center justify-center text-white/40">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                {/* Action row */}
-                <div className="flex items-center divide-x divide-white/10">
-                  <button
-                    onClick={() => { onAddToCollection('wishlist'); setShowContextMenu(false); }}
-                    className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-white/5 transition-colors"
-                  >
-                    <span className="text-lg">⭐</span>
-                    <span className="text-white/70 text-[10px]">Wishlist</span>
-                  </button>
-                  <button
-                    onClick={() => { onAddToCollection('inbox'); setShowContextMenu(false); }}
-                    className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-white/5 transition-colors"
-                  >
-                    <span className="text-lg">📦</span>
-                    <span className="text-white/70 text-[10px]">{t('inBox')}</span>
-                  </button>
-                  <button
-                    onClick={() => { onAddToCollection('done'); setShowContextMenu(false); }}
-                    className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-white/5 transition-colors"
-                  >
-                    <span className="text-lg">🏆</span>
-                    <span className="text-white/70 text-[10px]">{t('completed2')}</span>
-                  </button>
-                  <button
-                    onClick={() => { setShowContextMenu(false); onEnterMultiSelect(); }}
-                    className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-white/5 transition-colors"
-                  >
-                    <span className="text-lg">☑️</span>
-                    <span className="text-white/70 text-[10px]">Sélection</span>
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          </>,
-          document.body
         )}
-        </>
-        );
-        }
+
+        {!isMultiSelect && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowContextMenu(true); }}
+            className="absolute top-1.5 right-1.5 z-10 w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+          >
+            <MoreVertical className="w-3.5 h-3.5 text-white" />
+          </button>
+        )}
+
+        {ownedStatus && !isMultiSelect && (
+          <div className="absolute top-2 left-2 z-10">
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg backdrop-blur-sm border ${
+              ownedStatus === 'done'
+                ? 'bg-green-500 border-green-400 text-white'
+                : ownedStatus === 'wishlist'
+                ? 'bg-yellow-500 border-yellow-400 text-white'
+                : 'bg-blue-500 border-blue-400 text-white'
+            }`}>
+              <span>{ownedStatus === 'done' ? '🏆' : ownedStatus === 'wishlist' ? '⭐' : '📦'}</span>
+              <span className="hidden lg:inline">{ownedStatus === 'done' ? t('completed2') : ownedStatus === 'wishlist' ? 'Wishlist' : t('myBox')}</span>
+            </div>
+          </div>
+        )}
+
+        <div className={`${variant === 'large' ? 'aspect-[4/3]' : 'aspect-[3/4]'} overflow-hidden bg-white/5`}>
+          {puzzle.image_hd ? (
+            <img
+              src={puzzle.image_hd}
+              alt={puzzle.title}
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Puzzle className="w-8 h-8 text-white/20" />
+            </div>
+          )}
+        </div>
+        <div className="p-2 lg:p-3">
+          <h3 className="text-white text-[11px] lg:text-sm font-semibold line-clamp-2 mb-0.5 leading-tight">
+            {puzzle.title}
+          </h3>
+          <div className="flex items-center justify-between text-[10px] lg:text-xs text-white/40">
+            <span className="truncate max-w-[60%]">{puzzle.brand || ''}</span>
+            <span>{puzzle.piece_count} pcs</span>
+          </div>
+          {puzzle.wishlistCount > 0 && (
+            <div className="flex items-center gap-2 mt-1 text-[10px]">
+              <span className="text-orange-400">⭐ {puzzle.wishlistCount}</span>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {showContextMenu && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setShowContextMenu(false)} />
+          <div className="fixed bottom-20 left-0 right-0 z-[9999] flex justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+              className="w-full max-w-sm bg-[#0d0d35] border border-white/15 rounded-2xl overflow-hidden shadow-2xl"
+            >
+              <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-white/10">
+                {puzzle.image_hd && (
+                  <img src={puzzle.image_hd} alt={puzzle.title} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                )}
+                <p className="text-white text-xs font-semibold line-clamp-1 flex-1">{puzzle.title}</p>
+                <button onClick={() => setShowContextMenu(false)} className="w-5 h-5 flex items-center justify-center text-white/40">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex items-center divide-x divide-white/10">
+                <button
+                  onClick={() => { onAddToCollection('wishlist'); setShowContextMenu(false); }}
+                  className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-lg">⭐</span>
+                  <span className="text-white/70 text-[10px]">Wishlist</span>
+                </button>
+                <button
+                  onClick={() => { onAddToCollection('inbox'); setShowContextMenu(false); }}
+                  className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-lg">📦</span>
+                  <span className="text-white/70 text-[10px]">{t('inBox')}</span>
+                </button>
+                <button
+                  onClick={() => { onAddToCollection('done'); setShowContextMenu(false); }}
+                  className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-lg">🏆</span>
+                  <span className="text-white/70 text-[10px]">{t('completed2')}</span>
+                </button>
+                <button
+                  onClick={() => { setShowContextMenu(false); onEnterMultiSelect(); }}
+                  className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-lg">☑️</span>
+                  <span className="text-white/70 text-[10px]">Sélection</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </>,
+        document.body
+      )}
+    </>
+  );
+}
