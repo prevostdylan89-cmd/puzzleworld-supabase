@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Loader2, X, ShoppingCart, CheckCircle, Plus, Trophy } from 'lucide-react';
+import { ExternalLink, Loader2, X, CheckCircle, Plus, Trophy, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import { base44 } from '@/api/supabaseClient';
+import { supabase, base44 } from '@/api/supabaseClient';
 import { useLanguage } from '@/components/LanguageContext';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -34,7 +34,7 @@ function ImageZoomOverlay({ src, alt, onClose }) {
 
 export default function PuzzleDetailModal({ open, onClose, puzzle }) {
   const { t } = useLanguage();
-  const { isGuest } = useAuth(); // eslint-disable-line
+  const { isGuest } = useAuth();
   const [loading, setLoading] = useState(false);
   const [productData, setProductData] = useState(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
@@ -133,18 +133,37 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
     }
     setAddingStatus(status);
     try {
-      await base44.entities.UserPuzzle.create({
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        toast.error('Utilisateur non connecté');
+        setAddingStatus(null);
+        return;
+      }
+
+      const { error } = await supabase.from('user_puzzles').insert({
+        user_id: authUser.id,
+        created_by: authUser.email,
+        catalog_puzzle_id: puzzle.id || null,
         puzzle_name: puzzle.title,
-        puzzle_brand: puzzle.brand,
-        puzzle_pieces: puzzle.piece_count,
-        image: puzzle.image_hd,
-        puzzle_reference: puzzle.asin || puzzle.ean,
+        puzzle_brand: puzzle.brand || null,
+        puzzle_pieces: puzzle.piece_count || null,
+        image_url: puzzle.image_hd || null,
+        puzzle_reference: puzzle.asin || puzzle.ean || null,
+        amazon_link: puzzle.amazon_link || null,
         status,
-        end_date: status === 'done' ? new Date().toISOString().split('T')[0] : undefined,
+        end_date: status === 'done' ? new Date().toISOString().split('T')[0] : null,
       });
-      toast.success(status === 'inbox' ? '📦 Ajouté dans "À faire" !' : '✅ Ajouté dans "Terminé" !');
+
+      if (error) throw error;
+
+      if (status === 'inbox') {
+        toast.success('📦 Ajouté dans "Dans sa boîte" !');
+      } else if (status === 'done') {
+        toast.success('✅ Ajouté dans "Terminé" !');
+      }
     } catch (error) {
-      toast.error(t('addError'));
+      console.error('Erreur ajout collection:', error);
+      toast.error('Erreur lors de l\'ajout à la collection');
     }
     setAddingStatus(null);
   };
@@ -228,8 +247,8 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
                     variant="outline"
                     className="flex-1 h-11 border-2 border-blue-500/40 text-blue-300 hover:bg-blue-500/20 hover:border-blue-500"
                   >
-                    {addingStatus === 'inbox' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                    À faire
+                    {addingStatus === 'inbox' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Package className="w-4 h-4 mr-2" />}
+                    Dans sa boîte
                   </Button>
                   <Button
                     onClick={() => handleAddToCollection('done')}
@@ -243,7 +262,6 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
                 </div>
               </div>
 
-              {/* Wishlist uniquement */}
               <Button
                 onClick={handleWishlist}
                 variant="outline"
