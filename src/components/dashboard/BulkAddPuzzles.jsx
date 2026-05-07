@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Trash2, Upload, X } from "lucide-react";
+import { Plus, Trash2, Upload, X, FileUp } from "lucide-react";
 
 const CATEGORIES = [
   "Paysage", "Animal", "Ville", "Art", "Fantasy",
@@ -32,6 +32,7 @@ const COLS = [
 export default function BulkAddPuzzles({ onClose }) {
   const [rows, setRows] = useState([EMPTY_ROW(), EMPTY_ROW(), EMPTY_ROW()]);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const update = (_id, field, value) => {
     setRows(r => r.map(row => row._id === _id ? { ...row, [field]: value } : row));
@@ -44,6 +45,55 @@ export default function BulkAddPuzzles({ onClose }) {
       const next = r.filter(row => row._id !== _id);
       return next.length ? next : [EMPTY_ROW()];
     });
+  };
+
+  const handleCSVImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const lines = text.trim().split("\n").filter(l => l.trim());
+      if (lines.length < 2) {
+        toast.error("Le fichier CSV est vide ou invalide");
+        return;
+      }
+
+      // Détecter le séparateur (virgule ou point-virgule)
+      const separator = lines[0].includes(";") ? ";" : ",";
+
+      // Lire l'entête
+      const headers = lines[0].split(separator).map(h => h.trim().toLowerCase().replace(/"/g, ""));
+
+      const titleIndex = headers.findIndex(h => h.includes("titre") || h.includes("title"));
+      const amazonIndex = headers.findIndex(h => h.includes("amazon") || h.includes("lien"));
+
+      if (titleIndex === -1) {
+        toast.error("Colonne 'titre' introuvable dans le CSV");
+        return;
+      }
+
+      const newRows = lines.slice(1).map(line => {
+        const cols = line.split(separator).map(c => c.trim().replace(/"/g, ""));
+        return {
+          ...EMPTY_ROW(),
+          title:       cols[titleIndex] || "",
+          amazon_link: amazonIndex !== -1 ? (cols[amazonIndex] || "") : "",
+        };
+      }).filter(r => r.title.trim());
+
+      if (!newRows.length) {
+        toast.error("Aucune ligne valide trouvée dans le CSV");
+        return;
+      }
+
+      setRows(r => [...r.filter(row => row.title.trim()), ...newRows]);
+      toast.success(`${newRows.length} ligne(s) importée(s) depuis le CSV`);
+    };
+
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
   };
 
   const handlePaste = (e) => {
@@ -148,7 +198,7 @@ export default function BulkAddPuzzles({ onClose }) {
         <div>
           <h2 style={{ fontSize: "17px", fontWeight: 600, margin: 0 }}>Ajout rapide — collection communautaire</h2>
           <p style={{ fontSize: "12px", opacity: 0.6, margin: "3px 0 0" }}>
-            Saisie ligne par ligne · Tab pour avancer · Entrée pour nouvelle ligne · Coller depuis Google Sheets
+            Saisie ligne par ligne · Tab pour avancer · Entrée pour nouvelle ligne · Coller depuis Google Sheets · Importer CSV
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
@@ -169,6 +219,21 @@ export default function BulkAddPuzzles({ onClose }) {
           )}
           <Button variant="outline" size="sm" onClick={addRow}>
             <Plus size={14} className="mr-1" /> Ligne
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            style={{ display: "none" }}
+            onChange={handleCSVImport}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            style={{ borderColor: "rgba(99,102,241,0.5)", color: "#818cf8" }}
+          >
+            <FileUp size={14} className="mr-1" /> Importer CSV
           </Button>
           <Button
             size="sm"
@@ -273,7 +338,7 @@ export default function BulkAddPuzzles({ onClose }) {
       </div>
 
       <p style={{ fontSize: "11px", opacity: 0.45, marginTop: "8px" }}>
-        Astuce : copie-colle depuis Google Sheets (colonnes dans l'ordre : Titre, Marque, Pièces, Catégorie, Prix, ASIN, EAN, Lien Amazon, URL Image)
+        Astuce : CSV avec colonnes "titre" et "lien_amazon" (séparateur virgule ou point-virgule) · ou colle depuis Google Sheets
       </p>
     </div>
   );
