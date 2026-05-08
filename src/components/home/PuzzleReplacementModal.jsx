@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { base44 } from '@/api/supabaseClient';
+import { base44, supabase } from '@/api/supabaseClient';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -15,8 +15,14 @@ export default function PuzzleReplacementModal({ open, onClose, position, curren
   const { data: puzzles = [], isLoading } = useQuery({
     queryKey: ['allPuzzles'],
     queryFn: async () => {
-      const data = await base44.entities.PuzzleCatalog.list('-created_date', 100);
-      return data;
+      const { data, error } = await supabase
+        .from('puzzle_catalog')
+        .select('id, title, brand, piece_count, image_hd, asin, ean, amazon_link, status')
+        .not('status', 'eq', 'pending')
+        .order('created_date', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data || [];
     },
     enabled: open
   });
