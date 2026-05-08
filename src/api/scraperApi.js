@@ -5,53 +5,54 @@ const SCRAPER_BASE = 'https://api.scraperapi.com/structured/amazon/search';
 const SCRAPER_PRODUCT_BASE = 'https://api.scraperapi.com/structured/amazon/product';
 
 // ─── Normalisation EAN ───────────────────────────────────────────────────────
-// EAN-14 commençant par 0 → retire le 0 pour obtenir l'EAN-13 réel
-// UPC-12 → on garde tel quel (Amazon fr le comprend directement)
 export function normalizeEAN(code) {
   const clean = code.replace(/\D/g, '');
   if (clean.length === 14 && clean.startsWith('0')) {
-    return clean.slice(1); // 04005556173495 → 4005556173495
+    return clean.slice(1);
   }
-  // 12 chiffres = UPC américain → on garde tel quel
-  // 13 chiffres = EAN standard → on garde tel quel
   return clean;
+}
+
+// ─── Validation résultat puzzle ───────────────────────────────────────────────
+const PUZZLE_KEYWORDS = [
+  'puzzle', 'jigsaw', 'pièces', 'pieces', 'piezas', 'teile',
+  'ravensburger', 'clementoni', 'nathan', 'jumbo', 'educa',
+  'ceaco', 'buffalo games', 'eurographics', 'cobble hill', 'galison',
+  'masterpieces', 'white mountain'
+];
+
+const EXCLUDE_KEYWORDS = [
+  'sac', 'poubelle', 'trash', 'bag', 'cleaning', 'nettoyage',
+  'vêtement', 'clothing', 'shoe', 'chaussure', 'food', 'nourriture',
+  'shampoo', 'shampooing', 'cosmetic', 'cosmétique'
+];
+
+export function isPuzzleResult(result) {
+  const title = (result.name || result.title || '').toLowerCase();
+  if (!title) return false;
+  if (EXCLUDE_KEYWORDS.some(kw => title.includes(kw))) return false;
+  return PUZZLE_KEYWORDS.some(kw => title.includes(kw));
 }
 
 // ─── Détection marque par préfixe EAN/UPC ────────────────────────────────────
 const EAN_PREFIX_MAP = [
-  // Allemagne — Ravensburger et autres marques allemandes
   { prefix: ['400', '401', '402', '403', '404', '405', '406', '407', '408', '409', '410', '411', '412', '413', '414', '415', '416', '417', '418', '419', '420', '421', '422', '423', '424', '425', '426', '427', '428', '429', '430', '431', '432', '433', '434', '435', '436', '437', '438', '439', '440'], brand: 'Ravensburger', country: 'fr' },
-  // France — Clementoni France
   { prefix: ['306', '307', '308', '309'], brand: 'Clementoni', country: 'fr' },
-  // France — Nathan
   { prefix: ['350', '351', '352', '353', '354', '355', '356', '357', '358', '359'], brand: 'Nathan', country: 'fr' },
-  // Pays-Bas — Jumbo
   { prefix: ['871', '872', '873', '874', '875'], brand: 'Jumbo', country: 'fr' },
-  // frA — Ceaco / Buffalo Games (021 = UPC prefix)
   { prefix: ['021', '022', '023', '210', '211', '212', '213'], brand: 'Ceaco', country: 'fr' },
-  // frA — MasterPieces
   { prefix: ['814'], brand: 'MasterPieces', country: 'fr' },
-  // frA — White Mountain Puzzles
   { prefix: ['076', '077'], brand: 'White Mountain Puzzles', country: 'fr' },
-  // frA — Milton Bradley / Hasbro
   { prefix: ['080', '081', '082', '083'], brand: 'puzzle', country: 'fr' },
-  // frA — Buffalo Games
   { prefix: ['074', '075'], brand: 'Buffalo Games', country: 'fr' },
-  // Canada — Eurographics
   { prefix: ['601', '602', '603', '604', '605', '606', '607', '608', '609'], brand: 'Eurographics', country: 'fr' },
-  // frA — Cobble Hill
   { prefix: ['088'], brand: 'Cobble Hill', country: 'fr' },
-  // frA — Galison / MudPuppy
   { prefix: ['625', '626'], brand: 'Galison', country: 'fr' },
-  // Italie — Clementoni Italie
   { prefix: ['800', '801', '802', '803', '804', '805', '806', '807', '808', '809'], brand: 'Clementoni', country: 'fr' },
-  // Espagne — Educa
   { prefix: ['841'], brand: 'Educa', country: 'fr' },
 ];
 
 export function detectBrandFromEAN(ean) {
-  // Pour UPC-12, on prend les 3 premiers chiffres directement
-  // Pour EAN-13, on prend les 3 premiers chiffres
   const prefix3 = ean.slice(0, 3);
   const match = EAN_PREFIX_MAP.find(entry => entry.prefix.includes(prefix3));
   return match || null;
@@ -80,11 +81,12 @@ async function searchAmazonRaw(query, key, countryCode = 'fr') {
     const url = `${SCRAPER_BASE}?api_key=${key}&query=${encodeURIComponent(query)}&country_code=${countryCode}`;
     const response = await fetch(url);
     if (!response.ok) {
-      console.warn(`ScraperAPI ${countryCode} erreur ${response.statfr} pour: ${query}`);
+      console.warn(`ScraperAPI ${countryCode} erreur ${response.status} pour: ${query}`);
       return [];
     }
     const data = await response.json();
-    return data?.results ?? data?.organic_results ?? [];
+    const allResults = data?.results ?? data?.organic_results ?? [];
+    return allResults.filter(isPuzzleResult);
   } catch (e) {
     console.error('searchAmazonRaw erreur:', e);
     return [];
@@ -96,39 +98,32 @@ export async function searchAmazon(rawCode, apiKey) {
   const key = apiKey || await getScraperApiKey();
   if (!key) throw new Error('Clé ScraperAPI non configurée');
 
-  // 1. Normaliser l'EAN
   const ean = normalizeEAN(rawCode);
   console.log(`EAN normalisé: ${rawCode} → ${ean} (${ean.length} chiffres)`);
 
-  // 2. Détecter la marque
   const brandInfo = detectBrandFromEAN(ean);
   console.log('Marque détectée:', brandInfo);
 
   let results = [];
 
-  // 3. Recherche "Marque + EAN" si marque détectée
   if (brandInfo) {
     console.log(`Tentative 1: "${brandInfo.brand} ${ean}"`);
     results = await searchAmazonRaw(`${brandInfo.brand} ${ean}`, key, 'fr');
     if (results.length > 0) return results;
 
-    // 4. Recherche "Marque + puzzle + EAN"
     console.log(`Tentative 2: "${brandInfo.brand} puzzle ${ean}"`);
     results = await searchAmazonRaw(`${brandInfo.brand} puzzle ${ean}`, key, 'fr');
     if (results.length > 0) return results;
   }
 
-  // 5. EAN seul sur Amazon fr
   console.log(`Tentative 3: EAN seul "${ean}"`);
   results = await searchAmazonRaw(ean, key, 'fr');
   if (results.length > 0) return results;
 
-  // 6. "puzzle + EAN"
   console.log(`Tentative 4: "puzzle ${ean}"`);
   results = await searchAmazonRaw(`puzzle ${ean}`, key, 'fr');
   if (results.length > 0) return results;
 
-  // 7. Si UPC 12 chiffres → essai avec 0 devant (EAN-13)
   if (ean.length === 12) {
     const ean13 = '0' + ean;
     console.log(`Tentative 5: UPC→EAN13 "${ean13}"`);
@@ -142,22 +137,20 @@ export async function searchAmazon(rawCode, apiKey) {
     }
   }
 
-  // 8. Si marque connue, recherche sur Amazon du pays d'origine
   if (brandInfo && brandInfo.country !== 'fr') {
     console.log(`Tentative 7: "${brandInfo.brand} ${ean}" sur Amazon.${brandInfo.country}`);
     results = await searchAmazonRaw(`${brandInfo.brand} ${ean}`, key, brandInfo.country);
     if (results.length > 0) return results;
   }
 
-  // 9. Code original si différent du normalisé
   if (rawCode !== ean) {
     console.log(`Tentative 8: code original "${rawCode}"`);
     results = await searchAmazonRaw(rawCode, key, 'fr');
     if (results.length > 0) return results;
   }
 
-  console.log('Aucun résultat trouvé pour:', ean);
-  return [];
+  console.log('Aucun résultat puzzle valide trouvé pour:', ean);
+  return null;
 }
 
 // ─── Détail produit par ASIN ──────────────────────────────────────────────────
@@ -167,7 +160,7 @@ export async function getProductByAsin(asin, apiKey) {
 
   const url = `${SCRAPER_PRODUCT_BASE}?api_key=${key}&asin=${asin}&country_code=fr`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.statfr}`);
+  if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.status}`);
   const data = await response.json();
   console.log('ScraperAPI getProductByAsin:', data);
   return data;
@@ -180,12 +173,12 @@ export async function getScraperCredits(apiKey) {
 
   const url = `https://api.scraperapi.com/account?api_key=${key}`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.statfr}`);
+  if (!response.ok) throw new Error(`ScraperAPI erreur: ${response.status}`);
   const data = await response.json();
   console.log('ScraperAPI account:', data);
   const limit = data?.requestCount?.monthlyLimit ?? 0;
-  const fred = data?.requestCount?.thisMonthfrageCount ?? 0;
-  return limit - fred;
+  const used = data?.requestCount?.thisMonthUsageCount ?? 0;
+  return limit - used;
 }
 
 export function invalidateScraperCache() {}
