@@ -68,29 +68,35 @@ export default function Home() {
 
   const loadTopPuzzles = async () => {
     try {
-      const featured = await base44.entities.FeaturedPuzzle.list('position', 10);
-      if (featured.length > 0) {
-        const sorted = featured.sort((a, b) => a.position - b.position);
-        const catalogIds = sorted.map(f => f.puzzle_catalog_id).filter(Boolean);
-        // Fetch full catalog data for all featured puzzles
-        const allCatalog = await base44.entities.PuzzleCatalog.list('-socialScore', 500);
+      const { supabase } = await import('@/api/supabaseClient');
+      const { data: featured } = await supabase
+        .from('featured_puzzles')
+        .select('*')
+        .order('position', { ascending: true })
+        .limit(10);
+      if (featured && featured.length > 0) {
+        const catalogIds = featured.map(f => f.puzzle_catalog_id).filter(Boolean);
+        const { data: catalog } = await supabase
+          .from('puzzle_catalog')
+          .select('*')
+          .in('id', catalogIds);
         const catalogMap = {};
-        allCatalog.forEach(p => { catalogMap[p.id] = p; });
-        const ordered = sorted
-          .map(f => catalogMap[f.puzzle_catalog_id])
-          .filter(Boolean);
-        // If some weren't found in catalog, fill with featured cache data
-        const result = sorted.map(f => catalogMap[f.puzzle_catalog_id] || (f.puzzle_catalog_id ? {
+        (catalog || []).forEach(p => { catalogMap[p.id] = p; });
+        const result = featured.map(f => catalogMap[f.puzzle_catalog_id] || {
           id: f.puzzle_catalog_id,
           title: f.puzzle_title,
           image_hd: f.puzzle_image,
           asin: f.puzzle_asin,
-        } : null));
-        setTopPuzzles(result.filter(Boolean).filter(p => p.id));
+        });
+        setTopPuzzles(result.filter(p => p.id));
       } else {
-        // Fallback: top 10 puzzles by socialScore
-        const puzzles = await base44.entities.PuzzleCatalog.filter({ status: 'active' }, '-socialScore', 10);
-        setTopPuzzles(puzzles);
+        const { data: puzzles } = await supabase
+          .from('puzzle_catalog')
+          .select('*')
+          .eq('status', 'active')
+          .order('added_count', { ascending: false })
+          .limit(10);
+        setTopPuzzles(puzzles || []);
       }
     } catch (e) {
       console.error(e);
