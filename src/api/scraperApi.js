@@ -75,11 +75,16 @@ export async function getScraperApiKey() {
   }
 }
 
-// ─── Recherche Amazon générique ───────────────────────────────────────────────
+// ─── Recherche Amazon avec timeout ───────────────────────────────────────────
 async function searchAmazonRaw(query, key, countryCode = 'fr') {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
     const url = `${SCRAPER_BASE}?api_key=${key}&query=${encodeURIComponent(query)}&country_code=${countryCode}`;
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
     if (!response.ok) {
       console.warn(`ScraperAPI ${countryCode} erreur ${response.status} pour: ${query}`);
       return [];
@@ -88,12 +93,16 @@ async function searchAmazonRaw(query, key, countryCode = 'fr') {
     const allResults = data?.results ?? data?.organic_results ?? [];
     return allResults.filter(isPuzzleResult);
   } catch (e) {
-    console.error('searchAmazonRaw erreur:', e);
+    if (e.name === 'AbortError') {
+      console.warn('ScraperAPI timeout pour:', query);
+    } else {
+      console.error('searchAmazonRaw erreur:', e);
+    }
     return [];
   }
 }
 
-// ─── Recherche principale intelligente ───────────────────────────────────────
+// ─── Recherche principale — 2 tentatives max ─────────────────────────────────
 export async function searchAmazon(rawCode, apiKey) {
   const key = apiKey || await getScraperApiKey();
   if (!key) throw new Error('Clé ScraperAPI non configurée');
@@ -106,48 +115,21 @@ export async function searchAmazon(rawCode, apiKey) {
 
   let results = [];
 
+  // Tentative 1
   if (brandInfo) {
-    console.log(`Tentative 1: "${brandInfo.brand} ${ean}"`);
-    results = await searchAmazonRaw(`${brandInfo.brand} ${ean}`, key, 'fr');
-    if (results.length > 0) return results;
-
-    console.log(`Tentative 2: "${brandInfo.brand} puzzle ${ean}"`);
+    console.log(`Tentative 1: "${brandInfo.brand} puzzle ${ean}"`);
     results = await searchAmazonRaw(`${brandInfo.brand} puzzle ${ean}`, key, 'fr');
     if (results.length > 0) return results;
+  } else {
+    console.log(`Tentative 1: EAN seul "${ean}"`);
+    results = await searchAmazonRaw(ean, key, 'fr');
+    if (results.length > 0) return results;
   }
 
-  console.log(`Tentative 3: EAN seul "${ean}"`);
-  results = await searchAmazonRaw(ean, key, 'fr');
-  if (results.length > 0) return results;
-
-  console.log(`Tentative 4: "puzzle ${ean}"`);
+  // Tentative 2
+  console.log(`Tentative 2: "puzzle ${ean}"`);
   results = await searchAmazonRaw(`puzzle ${ean}`, key, 'fr');
   if (results.length > 0) return results;
-
-  if (ean.length === 12) {
-    const ean13 = '0' + ean;
-    console.log(`Tentative 5: UPC→EAN13 "${ean13}"`);
-    results = await searchAmazonRaw(ean13, key, 'fr');
-    if (results.length > 0) return results;
-
-    if (brandInfo) {
-      console.log(`Tentative 6: "${brandInfo.brand} ${ean13}"`);
-      results = await searchAmazonRaw(`${brandInfo.brand} ${ean13}`, key, 'fr');
-      if (results.length > 0) return results;
-    }
-  }
-
-  if (brandInfo && brandInfo.country !== 'fr') {
-    console.log(`Tentative 7: "${brandInfo.brand} ${ean}" sur Amazon.${brandInfo.country}`);
-    results = await searchAmazonRaw(`${brandInfo.brand} ${ean}`, key, brandInfo.country);
-    if (results.length > 0) return results;
-  }
-
-  if (rawCode !== ean) {
-    console.log(`Tentative 8: code original "${rawCode}"`);
-    results = await searchAmazonRaw(rawCode, key, 'fr');
-    if (results.length > 0) return results;
-  }
 
   console.log('Aucun résultat puzzle valide trouvé pour:', ean);
   return null;
