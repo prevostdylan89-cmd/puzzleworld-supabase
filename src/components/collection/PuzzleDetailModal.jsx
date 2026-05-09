@@ -78,19 +78,30 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
   const loadCollectionStatus = async (email) => {
     if (!puzzle) return;
     try {
-      // Chercher par catalog_puzzle_id OU par puzzle_name (fallback)
-      const { data } = await supabase
-        .from('user_puzzles')
-        .select('id, status')
-        .eq('created_by', email)
-        .or(
-          puzzle.id
-            ? `catalog_puzzle_id.eq.${puzzle.id},puzzle_name.eq.${puzzle.title}`
-            : `puzzle_name.eq.${puzzle.title}`
-        );
-
       const newMap = { wishlist: null, inbox: null, done: null };
-      for (const row of (data || [])) {
+      let rows = [];
+
+      // Requête 1 : par catalog_puzzle_id (le plus fiable)
+      if (puzzle.id) {
+        const { data } = await supabase
+          .from('user_puzzles')
+          .select('id, status')
+          .eq('created_by', email)
+          .eq('catalog_puzzle_id', puzzle.id);
+        rows = data || [];
+      }
+
+      // Requête 2 : par puzzle_name si rien trouvé via catalog_puzzle_id
+      if (rows.length === 0 && puzzle.title) {
+        const { data } = await supabase
+          .from('user_puzzles')
+          .select('id, status')
+          .eq('created_by', email)
+          .eq('puzzle_name', puzzle.title);
+        rows = data || [];
+      }
+
+      for (const row of rows) {
         if (row.status in newMap) newMap[row.status] = row.id;
       }
       setStatusMap(newMap);
