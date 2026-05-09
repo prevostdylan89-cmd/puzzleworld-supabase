@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Loader2, X, CheckCircle, Plus, Trophy, Package } from 'lucide-react';
+import { ExternalLink, Loader2, X, CheckCircle, Trophy, Package, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase, base44 } from '@/api/supabaseClient';
 import { useLanguage } from '@/components/LanguageContext';
@@ -37,10 +37,12 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
   const { isGuest } = useAuth();
   const [loading, setLoading] = useState(false);
   const [productData, setProductData] = useState(null);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [user, setUser] = useState(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
-  const [addingStatus, setAddingStatus] = useState(null);
+
+  // État des 3 boutons : null = non ajouté, sinon l'id de la ligne user_puzzles
+  const [statusMap, setStatusMap] = useState({ wishlist: null, inbox: null, done: null });
+  const [togglingStatus, setTogglingStatus] = useState(null); // quel bouton est en cours
 
   useEffect(() => {
     if (open && puzzle) {
@@ -56,11 +58,9 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
           availability: { type: 'in_stock' }
         } : null
       });
-      checkWishlistStatus();
-      setLoading(false);
     } else {
       setProductData(null);
-      setIsWishlisted(false);
+      setStatusMap({ wishlist: null, inbox: null, done: null });
     }
   }, [open, puzzle]);
 
@@ -68,22 +68,34 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
     try {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
-    } catch (error) {
-      console.log('User not logged in');
+      await loadCollectionStatus(currentUser.email);
+    } catch {
+      // non connecté
     }
   };
 
-  const checkWishlistStatus = async () => {
-    if (!puzzle?.asin) return;
+  // Vérifie si ce puzzle est déjà dans user_puzzles pour chaque statut
+  const loadCollectionStatus = async (email) => {
+    if (!puzzle) return;
     try {
-      const currentUser = await base44.auth.me();
-      const wishlists = await base44.entities.Wishlist.filter({
-        puzzle_name: puzzle.title,
-        created_by: currentUser.email
-      });
-      setIsWishlisted(wishlists.length > 0);
-    } catch (error) {
-      console.log('Error checking status:', error);
+      // Chercher par catalog_puzzle_id OU par puzzle_name (fallback)
+      const { data } = await supabase
+        .from('user_puzzles')
+        .select('id, status')
+        .eq('created_by', email)
+        .or(
+          puzzle.id
+            ? `catalog_puzzle_id.eq.${puzzle.id},puzzle_name.eq.${puzzle.title}`
+            : `puzzle_name.eq.${puzzle.title}`
+        );
+
+      const newMap = { wishlist: null, inbox: null, done: null };
+      for (const row of (data || [])) {
+        if (row.status in newMap) newMap[row.status] = row.id;
+      }
+      setStatusMap(newMap);
+    } catch (e) {
+      console.error('loadCollectionStatus error:', e);
     }
   };
 
@@ -93,73 +105,83 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
     return '#';
   };
 
-  const handleWishlist = async () => {
+  // Toggle : si déjà coché → supprime, sinon → insère
+  const handleToggleStatus = async (status) => {
     if (!user) {
-      toast.error(t('loginToWishlist'));
+      toast.error(t('loginToAdd') || 'Connectez-vous pour ajouter à votre collection');
       return;
     }
+    setTogglingStatus(status);
+
     try {
-      if (isWishlisted) {
-        const wishlists = await base44.entities.Wishlist.filter({
-          puzzle_name: puzzle.title,
-          created_by: user.email
-        });
-        if (wishlists.length > 0) {
-          await base44.entities.Wishlist.delete(wishlists[0].id);
-          setIsWishlisted(false);
-          toast.success(t('puzzleRemovedFromWishlist'));
-        }
+      const existingId = statusMap[status];
+
+      if (existingId) {
+        // Déjà dans la collection → on retire
+        const { error } = await supabase
+          .from('user_puzzles')
+          .delete()
+          .eq('id', existingId);
+        if (error) throw error;
+
+        setStatusMap(prev => ({ ...prev, [status]: null }));
+
+        const labels = { wishlist: 'Wishlist', inbox: 'Dans sa boîte', done: 'Terminé' };
+        toast.success(`Retiré de "${labels[status]}"`);
       } else {
-        await base44.entities.Wishlist.create({
-          puzzle_name: puzzle.title,
-          puzzle_brand: puzzle.brand,
-          puzzle_pieces: puzzle.piece_count,
-          image: puzzle.image_hd,
-          priority: 'medium'
-        });
-        setIsWishlisted(true);
-        toast.success(t('puzzleAddedToWishlist'));
+        // Pas encore → on ajoute
+        const { data: newRow, error } = await supabase
+          .from('user_puzzles')
+          .insert({
+            created_by: user.email,
+            catalog_puzzle_id: puzzle.id || null,
+            puzzle_name: puzzle.title,
+            puzzle_brand: puzzle.brand || null,
+            puzzle_pieces: puzzle.piece_count || null,
+            image_url: puzzle.image_hd || null,
+            puzzle_reference: puzzle.asin || puzzle.ean || null,
+            status,
+            end_date: status === 'done' ? new Date().toISOString().split('T')[0] : null,
+          })
+          .select('id')
+          .single();
+
+        if (error) throw error;
+
+        setStatusMap(prev => ({ ...prev, [status]: newRow.id }));
+
+        // Mettre à jour les compteurs du catalogue
+        if (puzzle.id) {
+          const { data: cat } = await supabase
+            .from('puzzle_catalog')
+            .select('added_count, wishlistCount')
+            .eq('id', puzzle.id)
+            .single();
+          if (cat) {
+            const updates = { added_count: (cat.added_count || 0) + 1 };
+            if (status === 'wishlist') updates.wishlistCount = (cat.wishlistCount || 0) + 1;
+            await supabase.from('puzzle_catalog').update(updates).eq('id', puzzle.id);
+          }
+        }
+
+        const toasts = {
+          wishlist: '⭐ Ajouté à la Wishlist !',
+          inbox: '📦 Ajouté dans "Dans sa boîte" !',
+          done: '✅ Ajouté dans "Terminé" !',
+        };
+        toast.success(toasts[status]);
       }
     } catch (error) {
-      console.error('Error toggling wishlist:', error);
-      toast.error(t('wishlistUpdateFailed'));
+      console.error('Erreur toggle status:', error);
+      toast.error('Erreur lors de la mise à jour de la collection');
+    } finally {
+      setTogglingStatus(null);
     }
-  };
-
-  const handleAddToCollection = async (status) => {
-    if (!user) {
-      toast.error(t('loginToAdd'));
-      return;
-    }
-    setAddingStatus(status);
-    try {
-      const { error } = await supabase.from('user_puzzles').insert({
-        created_by: user.email,
-        catalog_puzzle_id: puzzle.id || null,
-        puzzle_name: puzzle.title,
-        puzzle_brand: puzzle.brand || null,
-        puzzle_pieces: puzzle.piece_count || null,
-        image_url: puzzle.image_hd || null,
-        puzzle_reference: puzzle.asin || puzzle.ean || null,
-        status,
-        end_date: status === 'done' ? new Date().toISOString().split('T')[0] : null,
-      });
-
-      if (error) throw error;
-
-      if (status === 'inbox') {
-        toast.success('📦 Ajouté dans "Dans sa boîte" !');
-      } else if (status === 'done') {
-        toast.success('✅ Ajouté dans "Terminé" !');
-      }
-    } catch (error) {
-      console.error('Erreur ajout collection:', error);
-      toast.error('Erreur lors de l\'ajout à la collection');
-    }
-    setAddingStatus(null);
   };
 
   if (!puzzle) return null;
+
+  const isToggling = (s) => togglingStatus === s;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -229,42 +251,68 @@ export default function PuzzleDetailModal({ open, onClose, puzzle }) {
                 </div>
               )}
 
+              {/* ── Boutons collection toggle ── */}
               <div>
-                <p className="text-white/50 text-xs mb-2 font-medium uppercase tracking-wide">Ajouter à ma collection</p>
+                <p className="text-white/50 text-xs mb-3 font-medium uppercase tracking-wide">
+                  {user ? 'Ma collection' : 'Connectez-vous pour gérer votre collection'}
+                </p>
                 <div className="flex gap-3">
-                  <Button
-                    onClick={() => handleAddToCollection('inbox')}
-                    disabled={addingStatus !== null}
-                    variant="outline"
-                    className="flex-1 h-11 border-2 border-blue-500/40 text-blue-300 hover:bg-blue-500/20 hover:border-blue-500"
+                  {/* Dans sa boîte */}
+                  <button
+                    onClick={() => handleToggleStatus('inbox')}
+                    disabled={isToggling('inbox')}
+                    className={`flex-1 h-11 rounded-xl border-2 font-medium text-sm flex items-center justify-center gap-2 transition-all
+                      ${statusMap.inbox
+                        ? 'border-blue-500 bg-blue-500/30 text-blue-300'
+                        : 'border-blue-500/40 text-blue-300/70 hover:bg-blue-500/20 hover:border-blue-500'
+                      }`}
                   >
-                    {addingStatus === 'inbox' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Package className="w-4 h-4 mr-2" />}
-                    Dans sa boîte
-                  </Button>
-                  <Button
-                    onClick={() => handleAddToCollection('done')}
-                    disabled={addingStatus !== null}
-                    variant="outline"
-                    className="flex-1 h-11 border-2 border-green-500/40 text-green-300 hover:bg-green-500/20 hover:border-green-500"
+                    {isToggling('inbox')
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : statusMap.inbox
+                        ? <Package className="w-4 h-4 fill-current" />
+                        : <Package className="w-4 h-4" />
+                    }
+                    {statusMap.inbox ? '✓ Dans sa boîte' : 'Dans sa boîte'}
+                  </button>
+
+                  {/* Terminé */}
+                  <button
+                    onClick={() => handleToggleStatus('done')}
+                    disabled={isToggling('done')}
+                    className={`flex-1 h-11 rounded-xl border-2 font-medium text-sm flex items-center justify-center gap-2 transition-all
+                      ${statusMap.done
+                        ? 'border-green-500 bg-green-500/30 text-green-300'
+                        : 'border-green-500/40 text-green-300/70 hover:bg-green-500/20 hover:border-green-500'
+                      }`}
                   >
-                    {addingStatus === 'done' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trophy className="w-4 h-4 mr-2" />}
-                    Terminé
-                  </Button>
+                    {isToggling('done')
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <Trophy className="w-4 h-4" />
+                    }
+                    {statusMap.done ? '✓ Terminé' : 'Terminé'}
+                  </button>
                 </div>
+
+                {/* Wishlist */}
+                <button
+                  onClick={() => handleToggleStatus('wishlist')}
+                  disabled={isToggling('wishlist')}
+                  className={`mt-3 w-full h-12 rounded-xl border-2 font-medium flex items-center justify-center gap-2 transition-all
+                    ${statusMap.wishlist
+                      ? 'border-yellow-500 bg-yellow-500/20 text-yellow-400'
+                      : 'border-white/20 text-white/70 hover:bg-white/5 hover:border-white/40'
+                    }`}
+                >
+                  {isToggling('wishlist')
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Star className={`w-4 h-4 ${statusMap.wishlist ? 'fill-yellow-400' : ''}`} />
+                  }
+                  {statusMap.wishlist ? '⭐ Dans ma Wishlist' : 'Ajouter à la Wishlist'}
+                </button>
               </div>
 
-              <Button
-                onClick={handleWishlist}
-                variant="outline"
-                className={`w-full h-12 border-2 transition-all ${
-                  isWishlisted
-                    ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 hover:bg-yellow-500/30'
-                    : 'border-white/20 text-white hover:bg-white/5'
-                }`}
-              >
-                ⭐ {isWishlisted ? t('wishlist') : 'Ajouter à la Wishlist'}
-              </Button>
-
+              {/* Lien Amazon */}
               <Button
                 onClick={() => window.open(getAffiliateLink(), '_blank')}
                 className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white h-12 text-lg font-semibold"

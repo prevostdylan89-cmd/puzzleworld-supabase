@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/api/supabaseClient';
-import { searchAmazon, getProductByAsin, normalizeEAN } from '@/api/scraperApi';
+import { searchAmazon, searchAmazonByName, getProductByAsin, normalizeEAN } from '@/api/scraperApi';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
@@ -56,6 +56,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
   const [speedMinutes, setSpeedMinutes] = useState('');
   const [speedSeconds, setSpeedSeconds] = useState('');
   const [showSpeedInput, setShowSpeedInput] = useState(false);
+  const [nameSearchInput, setNameSearchInput] = useState('');
+  const [showNameSearch, setShowNameSearch] = useState(false);
 
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
@@ -214,7 +216,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       console.log('Résultats ScraperAPI:', results);
 
       if (!results || results.length === 0) {
-        setScanMessage({ type: 'error', text: 'Puzzle non trouve sur Amazon. Ajoutez-le manuellement !' });
+        setScanMessage({ type: 'error', text: 'Puzzle non trouvé via le code-barres. Essayez une recherche par nom ci-dessous !' });
+        setShowNameSearch(true);
         setActiveTab('manual');
         setLoading(false);
         return;
@@ -299,7 +302,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
     } catch (error) {
       console.error('ScraperAPI error:', error);
-      setScanMessage({ type: 'error', text: 'Puzzle non trouve. Ajoutez-le manuellement !' });
+      setScanMessage({ type: 'error', text: 'Puzzle non trouvé. Essayez une recherche par nom ci-dessous !' });
+      setShowNameSearch(true);
       setActiveTab('manual');
       setLoading(false);
     }
@@ -484,6 +488,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setSpeedMinutes('');
     setSpeedSeconds('');
     setShowSpeedInput(false);
+    setNameSearchInput('');
+    setShowNameSearch(false);
     setActiveTab(isMobile ? 'scanner' : 'manual');
     onClose();
   };
@@ -509,6 +515,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setSpeedMinutes('');
     setSpeedSeconds('');
     setShowSpeedInput(false);
+    setNameSearchInput('');
+    setShowNameSearch(false);
     setCameraReady(false);
     setScanning(false);
     setActiveTab(isMobile ? 'scanner' : 'manual');
@@ -528,6 +536,58 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setScanMessage(null);
     setPuzzleData(newPuzzleData);
     setPuzzleConfirmed(true);
+  };
+
+  // Recherche par nom (pour les puzzles dont le code-barres ne retourne rien)
+  const handleNameSearch = async () => {
+    if (!nameSearchInput.trim()) return;
+    setLoading(true);
+    setScanMessage(null);
+    try {
+      const results = await searchAmazonByName(nameSearchInput.trim());
+      if (!results || results.length === 0) {
+        setScanMessage({ type: 'error', text: 'Aucun puzzle trouvé pour ce nom. Essayez un autre terme ou ajoutez manuellement.' });
+        setLoading(false);
+        return;
+      }
+      const item = results[0];
+      await consumeCredit();
+      let brand = item.brand || '';
+      let pieces = null;
+      let imageUrl = item.image || item.thumbnail || '';
+      let title = item.name || item.title || '';
+      if (item.asin) {
+        try {
+          const detail = await getProductByAsin(item.asin);
+          if (detail?.name) title = detail.name;
+          if (detail?.product_information?.marque) brand = detail.product_information.marque;
+          else if (detail?.brand) brand = detail.brand.replace('Visiter la boutique ', '').trim();
+          if (detail?.high_res_images?.[0]) imageUrl = detail.high_res_images[0];
+          const prodInfo = detail?.product_information || {};
+          const piecesEntry = Object.entries(prodInfo).find(([k, v]) =>
+            k.toLowerCase().includes('pi') || String(v).toLowerCase().includes('pièces') || String(v).toLowerCase().includes('pieces')
+          );
+          if (piecesEntry) { const m = String(piecesEntry[1]).match(/(\d+)/); if (m) pieces = parseInt(m[1]); }
+          if (!pieces) { const m = title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/); if (m) pieces = parseInt(m[1].replace(/\s/g, '')); }
+        } catch (e) { console.error('getProductByAsin error:', e); }
+      }
+      const puzzleInfo = {
+        name: title, title, brand, image: imageUrl, image_hd: imageUrl,
+        pieces, piece_count: pieces, asin: item.asin || '', ean: barcode,
+        sku: item.asin || barcode,
+        amazon_price: item.pricing || item.price?.value || null,
+        amazon_rating: item.average_rating || item.rating || null,
+        link: item.asin ? `https://www.amazon.fr/dp/${item.asin}` : '',
+        isPending: true,
+      };
+      setPuzzleData(puzzleInfo);
+      setShowNameSearch(false);
+      setLoading(false);
+    } catch (err) {
+      console.error('Name search error:', err);
+      setScanMessage({ type: 'error', text: 'Erreur lors de la recherche. Ajoutez manuellement.' });
+      setLoading(false);
+    }
   };
 
   return (
@@ -576,7 +636,31 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
               </div>
             )}
 
-            {!puzzleData && !showSuccess && scanMessage?.type !== 'pending' && (
+            {!puzzleData && !showSuccess && scanMessage?.type !== 'pending' && showNameSearch && (
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl p-4 border border-orange-500/30 bg-orange-500/5 space-y-3"
+              >
+                <p className="text-orange-300 text-sm font-medium text-center">🔍 Rechercher par nom du puzzle</p>
+                <p className="text-white/50 text-xs text-center">Ex : "Villainous 1000 pièces", "Ravensburger château"</p>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Nom du puzzle..."
+                    value={nameSearchInput}
+                    onChange={e => setNameSearchInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleNameSearch()}
+                    className="bg-white/5 border-white/20 text-white flex-1"
+                  />
+                  <Button
+                    onClick={handleNameSearch}
+                    disabled={!nameSearchInput.trim() || loading}
+                    className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Chercher'}
+                  </Button>
+                </div>
+              </motion.div>
+            )}
               <>
                 {isMobile ? (
                   <Tabs value={activeTab} onValueChange={setActiveTab}>

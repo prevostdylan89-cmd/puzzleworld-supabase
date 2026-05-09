@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { motion } from 'framer-motion';
 import { Clock, Tag, ChevronRight, BookOpen, Plus, ArrowLeft, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,34 @@ const CATEGORY_COLORS = {
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Vérifie si un article a du contenu réel
+function isArticleComplete(article) {
+  // Doit être publié
+  if (!article.is_published) return false;
+  // Doit avoir un titre non vide
+  if (!article.title?.trim()) return false;
+
+  // Vérifier les blocs
+  let blocks = article.blocks;
+  if (typeof blocks === 'string') {
+    try { blocks = JSON.parse(blocks); } catch { blocks = []; }
+  }
+  if (Array.isArray(blocks) && blocks.length > 0) {
+    // Vérifier que au moins un bloc a du contenu réel
+    const hasContent = blocks.some(b => {
+      if (b.type === 'text' || b.type === 'paragraph') return b.content?.trim?.()?.length > 20;
+      if (b.type === 'image') return !!b.url;
+      return !!b.content || !!b.url || !!b.text;
+    });
+    if (hasContent) return true;
+  }
+
+  // Fallback : contenu HTML
+  if (article.content?.trim?.()?.length > 50) return true;
+
+  return false;
 }
 
 function ArticleCard({ article, onClick }) {
@@ -84,7 +112,6 @@ function ArticleView({ article, onBack }) {
       <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3 leading-tight">{article.title}</h1>
       {article.subtitle && <p className="text-xl text-white/60 mb-8 leading-relaxed">{article.subtitle}</p>}
 
-      {/* Content — blocs ou HTML legacy */}
       {(() => {
         let blocks = article.blocks;
         if (typeof blocks === 'string') { try { blocks = JSON.parse(blocks); } catch { blocks = []; } }
@@ -103,7 +130,6 @@ function ArticleView({ article, onBack }) {
         return null;
       })()}
 
-      {/* Tags */}
       {article.tags && (
         <div className="flex flex-wrap gap-2 mt-8 pt-6 border-t border-white/10">
           <Tag className="w-4 h-4 text-white/30 mt-0.5" />
@@ -115,7 +141,6 @@ function ArticleView({ article, onBack }) {
         </div>
       )}
 
-      {/* Lien externe */}
       {article.external_link && (
         <div className="mt-8 p-5 bg-orange-500/10 border border-orange-500/30 rounded-xl">
           <p className="text-white/70 text-sm mb-3">Ressource liée</p>
@@ -127,7 +152,6 @@ function ArticleView({ article, onBack }) {
         </div>
       )}
 
-      {/* Fiche puzzle */}
       {article.puzzle_catalog_id && article.puzzle_title && (
         <div className="mt-6 p-5 bg-white/5 border border-white/10 rounded-xl flex items-center gap-4">
           {article.puzzle_image && (
@@ -153,38 +177,54 @@ export default function Blog() {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [user, setUser] = useState(null);
   const [filterCategory, setFilterCategory] = useState('all');
-  const isGuest = localStorage.getItem('guest_mode') === 'true';
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user || null)).catch(() => {});
     load();
 
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('article');
     if (slug) {
-      base44.entities.BlogArticle.filter({ slug, is_published: true }).then(results => {
-        if (results[0]) {
-          setSelectedArticle(results[0]);
-          window.scrollTo({ top: 0, behavior: 'instant' });
-        }
-      });
+      supabase
+        .from('blog_articles')
+        .select('*')
+        .eq('slug', slug)
+        .eq('is_published', true)
+        .limit(1)
+        .then(({ data }) => {
+          if (data?.[0] && isArticleComplete(data[0])) {
+            setSelectedArticle(data[0]);
+            window.scrollTo({ top: 0, behavior: 'instant' });
+          }
+        });
     }
   }, []);
 
   const load = async () => {
     try {
-      const [data, cats] = await Promise.all([
-        base44.entities.BlogArticle.filter({ is_published: true }, '-created_date'),
-        base44.entities.BlogCategory.list('order'),
+      const [{ data: articlesData }, { data: catsData }] = await Promise.all([
+        supabase
+          .from('blog_articles')
+          .select('*')
+          .eq('is_published', true)
+          .order('created_date', { ascending: false }),
+        supabase
+          .from('blog_categories')
+          .select('*')
+          .order('order', { ascending: true }),
       ]);
-      setArticles(data);
-      setCategories(cats);
-    } catch {}
-    finally { setLoading(false); }
+
+      // Filtrer les articles incomplets côté client
+      const completeArticles = (articlesData || []).filter(isArticleComplete);
+      setArticles(completeArticles);
+      setCategories(catsData || []);
+    } catch (e) {
+      console.error('Blog load error:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Sort articles by category order, then date
-  const featuredCat = categories.find(c => c.is_featured);
   const sortedArticles = [...articles].sort((a, b) => {
     const ai = categories.findIndex(c => c.name === a.category);
     const bi = categories.findIndex(c => c.name === b.category);
@@ -192,7 +232,9 @@ export default function Blog() {
     return 0;
   });
 
-  const filtered = filterCategory === 'all' ? sortedArticles : sortedArticles.filter(a => a.category === filterCategory);
+  const filtered = filterCategory === 'all'
+    ? sortedArticles
+    : sortedArticles.filter(a => a.category === filterCategory);
 
   if (selectedArticle) {
     return (
@@ -216,7 +258,7 @@ export default function Blog() {
           Découvrez nos articles, guides et actualités pour les passionnés de puzzles.
         </p>
 
-        {user?.role === 'admin' && (
+        {user?.user_metadata?.role === 'admin' && (
           <a href="/Dashboard" className="inline-flex items-center gap-2 mt-4 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
             <Plus className="w-4 h-4" /> Gérer le blog (Admin)
           </a>
@@ -292,7 +334,7 @@ export default function Blog() {
 
           {/* Rest of articles */}
           <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 lg:gap-4">
-            {filtered.slice(1).map((article, i) => (
+            {filtered.slice(1).map((article) => (
               <ArticleCard key={article.id} article={article} onClick={() => {
                 setSelectedArticle(article);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
