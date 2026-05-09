@@ -7,7 +7,6 @@ import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { Mail, Loader2 } from 'lucide-react';
 
-// ─── Icônes providers ─────────────────────────────────────────────────────────
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 48 48">
@@ -19,29 +18,13 @@ function GoogleIcon() {
   );
 }
 
-function AppleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 814 1000" fill="currentColor">
-      <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 523 0 443.6 0 368.3c0-204.1 135.4-312.1 269-312.1 70.8 0 129.7 46.4 174 46.4 42.7 0 109.3-49.1 189.3-49.1 30.4 0 110.4 2.6 164.6 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z"/>
-    </svg>
-  );
-}
-
-function FacebookIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2">
-      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-    </svg>
-  );
-}
-
 export default function LoginPage() {
   const { loginWithGoogle, loginWithEmail, signUpWithEmail, continueAsGuest } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState('login'); // 'login' | 'signup' | 'magic'
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(null); // null | 'google' | 'apple' | 'facebook' | 'email' | 'magic'
+  const [loading, setLoading] = useState(null);
   const [magicSent, setMagicSent] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -67,36 +50,8 @@ export default function LoginPage() {
     try { await loginWithGoogle(); } catch (err) { setError(err.message); setLoading(null); }
   };
 
-  const handleApple = async () => {
-    setLoading('apple');
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: { redirectTo: `${window.location.origin}/` },
-      });
-      if (error) throw error;
-    } catch (err) {
-      setError(err.message);
-      setLoading(null);
-    }
-  };
-
-  const handleFacebook = async () => {
-    setLoading('facebook');
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'facebook',
-        options: { redirectTo: `${window.location.origin}/` },
-      });
-      if (error) throw error;
-    } catch (err) {
-      setError(err.message);
-      setLoading(null);
-    }
-  };
-
   const handleMagicLink = async () => {
-    if (!email) { setError('Entrez votre email d\'abord'); return; }
+    if (!email) { setError("Entrez votre email d'abord"); return; }
     setLoading('magic');
     setError(null);
     try {
@@ -148,7 +103,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-3">
 
-          {/* ── Providers OAuth ── */}
+          {/* Google */}
           <Button
             className="w-full flex items-center gap-3 bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 h-11"
             variant="outline"
@@ -159,32 +114,14 @@ export default function LoginPage() {
             Continuer avec Google
           </Button>
 
-          <Button
-            className="w-full flex items-center gap-3 bg-black text-white hover:bg-zinc-900 h-11"
-            disabled={anyLoading}
-            onClick={handleApple}
-          >
-            {isLoading('apple') ? <Loader2 className="w-4 h-4 animate-spin" /> : <AppleIcon />}
-            Continuer avec Apple
-          </Button>
-
-          <Button
-            className="w-full flex items-center gap-3 bg-[#1877F2] text-white hover:bg-[#166FE5] h-11"
-            disabled={anyLoading}
-            onClick={handleFacebook}
-          >
-            {isLoading('facebook') ? <Loader2 className="w-4 h-4 animate-spin" /> : <FacebookIcon />}
-            Continuer avec Facebook
-          </Button>
-
-          {/* ── Séparateur ── */}
+          {/* Séparateur */}
           <div className="relative flex items-center gap-2 py-1">
             <div className="flex-1 h-px bg-slate-200" />
             <span className="text-xs text-slate-400">ou avec email</span>
             <div className="flex-1 h-px bg-slate-200" />
           </div>
 
-          {/* ── Onglets Login / Inscription / Magic Link ── */}
+          {/* Onglets */}
           <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
             {[
               { key: 'login', label: 'Connexion' },
@@ -203,7 +140,7 @@ export default function LoginPage() {
             ))}
           </div>
 
-          {/* ── Email ── */}
+          {/* Email */}
           <Input
             type="email"
             placeholder="Email"
@@ -213,7 +150,7 @@ export default function LoginPage() {
             disabled={anyLoading}
           />
 
-          {/* ── Mot de passe (masqué pour magic link) ── */}
+          {/* Mot de passe */}
           {mode !== 'magic' && (
             <Input
               type="password"
@@ -233,7 +170,7 @@ export default function LoginPage() {
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 
-          {/* ── Bouton principal ── */}
+          {/* Bouton principal */}
           {mode === 'magic' ? (
             <Button
               type="button"
@@ -256,7 +193,7 @@ export default function LoginPage() {
             </Button>
           )}
 
-          {/* ── Mode invité ── */}
+          {/* Mode invité */}
           <Button
             variant="ghost"
             className="w-full text-slate-500 text-sm"
@@ -266,10 +203,6 @@ export default function LoginPage() {
             Continuer en tant qu'invité
           </Button>
 
-          {/* ── Note activation providers ── */}
-          <p className="text-center text-[10px] text-slate-400 leading-relaxed">
-            Apple et Facebook nécessitent une activation dans le Dashboard Supabase (Authentication → Providers).
-          </p>
         </CardContent>
       </Card>
     </div>
