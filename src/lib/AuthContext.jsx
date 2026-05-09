@@ -9,15 +9,12 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
-  // Compatibilité avec l'ancien code qui utilisait appPublicSettings
   const [appPublicSettings] = useState({ status: 'active' });
   const isLoadingPublicSettings = false;
 
-  // Charge le profil depuis user_profiles pour avoir le vrai display_name
   const enrichUserWithProfile = async (supabaseUser) => {
     const base = enrichUser(supabaseUser);
     try {
-      // Timeout de 3 secondes pour éviter un blocage infini
       const profilePromise = supabase
         .from('user_profiles')
         .select('display_name, avatar, friend_code')
@@ -37,7 +34,6 @@ export const AuthProvider = ({ children }) => {
         };
       }
     } catch (e) {
-      // En cas d'erreur ou timeout, on retourne le profil de base
       console.warn('Profile fetch failed, using base user:', e.message);
     }
     return base;
@@ -74,15 +70,10 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  /**
-   * Enrichit l'objet user Supabase avec les champs attendus par l'ancienne app base44.
-   * base44 utilisait user.email, user.full_name, user.picture, user.role, etc.
-   */
   const enrichUser = (supabaseUser) => {
     const meta = supabaseUser.user_metadata || {};
     return {
       ...supabaseUser,
-      // Champs base44
       email: supabaseUser.email,
       full_name: meta.display_name || meta.full_name || meta.name || supabaseUser.email?.split('@')[0] || 'Utilisateur',
       display_name: meta.display_name || meta.full_name || meta.name || supabaseUser.email?.split('@')[0] || 'Utilisateur',
@@ -93,55 +84,72 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
-  /**
-   * updateMe(payload) - compatibilité base44.auth.updateMe()
-   * Met à jour les user_metadata Supabase
-   */
   const updateMe = async (payload) => {
-    const { data, error } = await supabase.auth.updateUser({
-      data: payload,
-    });
+    const { data, error } = await supabase.auth.updateUser({ data: payload });
     if (error) throw error;
     if (data.user) setUser(enrichUser(data.user));
     return enrichUser(data.user);
   };
 
-  /**
-   * Connexion via Google OAuth (principal fournisseur)
-   */
+  // Détecte si on est dans l'app Android (WebView)
+  const isAndroidApp = () => {
+    return /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
+  };
+
   const loginWithGoogle = async () => {
+    const redirectTo = isAndroidApp()
+      ? 'puzzleworld://login'
+      : window.location.origin;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
+      options: { redirectTo },
     });
     if (error) throw error;
   };
 
-  /**
-   * Connexion via email magique (alternative sans mot de passe)
-   */
+  const loginWithApple = async () => {
+    const redirectTo = isAndroidApp()
+      ? 'puzzleworld://login'
+      : window.location.origin;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo },
+    });
+    if (error) throw error;
+  };
+
+  const loginWithFacebook = async () => {
+    const redirectTo = isAndroidApp()
+      ? 'puzzleworld://login'
+      : window.location.origin;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: { redirectTo },
+    });
+    if (error) throw error;
+  };
+
   const loginWithMagicLink = async (email) => {
+    const redirectTo = isAndroidApp()
+      ? 'puzzleworld://login'
+      : window.location.origin;
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: redirectTo },
     });
     if (error) throw error;
   };
 
-  /**
-   * Connexion email + mot de passe
-   */
   const loginWithEmail = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   };
 
-  /**
-   * Inscription email + mot de passe
-   */
   const signUpWithEmail = async (email, password, fullName) => {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -158,20 +166,9 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
-  // navigateToLogin → redirige vers la page login (chemin côté React Router)
-  const navigateToLogin = () => {
-    window.location.href = '/login';
-  };
-
-  const continueAsGuest = () => {
-    localStorage.setItem('guest_mode', 'true');
-    setIsGuest(true);
-  };
-
-  const exitGuestMode = () => {
-    localStorage.removeItem('guest_mode');
-    setIsGuest(false);
-  };
+  const navigateToLogin = () => { window.location.href = '/login'; };
+  const continueAsGuest = () => { localStorage.setItem('guest_mode', 'true'); setIsGuest(true); };
+  const exitGuestMode = () => { localStorage.removeItem('guest_mode'); setIsGuest(false); };
 
   const checkAppState = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -197,6 +194,8 @@ export const AuthProvider = ({ children }) => {
       checkAppState,
       updateMe,
       loginWithGoogle,
+      loginWithApple,
+      loginWithFacebook,
       loginWithMagicLink,
       loginWithEmail,
       signUpWithEmail,
