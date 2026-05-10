@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const profilePromise = supabase
         .from('user_profiles')
-        .select('display_name, avatar, friend_code')
+        .select('display_name, profile_photo, friend_code')
         .eq('created_by', supabaseUser.email)
         .limit(1);
       const timeoutPromise = new Promise((_, reject) =>
@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
           ...base,
           full_name: profiles[0].display_name,
           display_name: profiles[0].display_name,
-          picture: profiles[0].avatar || base.picture,
+          picture: profiles[0].profile_photo || base.picture,
           friend_code: profiles[0].friend_code,
         };
       }

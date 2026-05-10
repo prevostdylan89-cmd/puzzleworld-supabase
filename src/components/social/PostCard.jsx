@@ -5,7 +5,7 @@ import { Heart, MessageCircle, UserPlus, UserCheck, Puzzle, Bookmark, BookmarkCh
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { base44 } from '@/api/supabaseClient';
+import { base44, supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { useLanguage } from '@/components/LanguageContext';
@@ -45,9 +45,9 @@ export default function PostCard({ post, user, isFeatured = false }) {
   // Charger le profil de l'auteur (photo + pseudo)
   useEffect(() => {
     if (!post.created_by) return;
-    base44.entities.UserProfile.filter({ created_by: post.created_by })
-      .then(profiles => {
-        if (profiles.length > 0) setAuthorProfile(profiles[0]);
+    supabase.from('user_profiles').select('profile_photo, display_name').eq('created_by', post.created_by).maybeSingle()
+      .then(({ data }) => {
+        if (data) setAuthorProfile(data);
       })
       .catch(() => {});
   }, [post.created_by]);

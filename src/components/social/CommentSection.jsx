@@ -4,18 +4,12 @@ import { Send, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { useLanguage } from '@/components/LanguageContext';
 import UserProfileDialog from './UserProfileDialog';
 import AuthorLevelBadge from './AuthorLevelBadge';
-
-const BADGE_LEVELS = [
-  { level: 1, icon: '🌱' }, { level: 2, icon: '🔲' }, { level: 3, icon: '🔍' },
-  { level: 4, icon: '🧩' }, { level: 5, icon: '🎨' }, { level: 6, icon: '⚡' },
-  { level: 7, icon: '💎' }, { level: 8, icon: '🏆' }, { level: 9, icon: '✨' }, { level: 10, icon: '👑' },
-];
 
 function CommentItem({ comment, commentInitials, timeAgo }) {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -25,21 +19,22 @@ function CommentItem({ comment, commentInitials, timeAgo }) {
 
   useEffect(() => {
     if (!comment.created_by) return;
-
-    // Fetch profile by created_by (email) - plus fiable que par display_name
     const fetchProfile = async () => {
       try {
-        const profiles = await base44.entities.UserProfile.filter({ created_by: comment.created_by });
-        if (profiles.length > 0) {
-          if (profiles[0].profile_photo) setProfilePhoto(profiles[0].profile_photo);
-          if (profiles[0].display_name) setDisplayName(profiles[0].display_name);
-          if (profiles[0].role === 'admin') setIsAdmin(true);
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('profile_photo, display_name, role')
+          .eq('created_by', comment.created_by)
+          .maybeSingle();
+        if (data) {
+          if (data.profile_photo) setProfilePhoto(data.profile_photo);
+          if (data.display_name) setDisplayName(data.display_name);
+          if (data.role === 'admin') setIsAdmin(true);
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
       }
     };
-
     fetchProfile();
   }, [comment.created_by]);
 
@@ -97,13 +92,14 @@ export default function CommentSection({ post, user, onCommentAdded }) {
 
   useEffect(() => {
     if (!user?.email) return;
-    base44.entities.UserProfile.filter({ created_by: user.email  })
-      .then(profiles => { 
-        if (profiles.length > 0 && profiles[0].profile_photo) {
-          setCurrentUserPhoto(profiles[0].profile_photo);
-        }
-      })
-      .catch(() => {});
+    supabase
+      .from('user_profiles')
+      .select('profile_photo')
+      .eq('created_by', user.email)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.profile_photo) setCurrentUserPhoto(data.profile_photo);
+      });
   }, [user?.email]);
 
   useEffect(() => {
@@ -112,11 +108,12 @@ export default function CommentSection({ post, user, onCommentAdded }) {
 
   const loadComments = async () => {
     try {
-      const commentsList = await base44.entities.Comment.filter(
-        { post_id: post.id },
-        '-created_date'
-      );
-      setComments(commentsList);
+      const { data } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('post_id', post.id)
+        .order('created_date', { ascending: false });
+      setComments(data || []);
     } catch (error) {
       console.error('Error loading comments:', error);
     } finally {
@@ -126,38 +123,41 @@ export default function CommentSection({ post, user, onCommentAdded }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!user) {
-      toast.error(t('logIn'));
-      return;
-    }
-
+    if (!user) { toast.error(t('logIn')); return; }
     if (!newComment.trim()) return;
 
     setIsSubmitting(true);
     try {
-      // Récupérer le pseudo (display_name) depuis UserProfile
-      let authorName = user.full_name || user.email;
-      try {
-        const profiles = await base44.entities.UserProfile.filter({ created_by: user.email });
-        if (profiles.length > 0 && profiles[0].display_name) {
-          authorName = profiles[0].display_name;
-        }
-      } catch {}
+      // Récupérer le pseudo depuis user_profiles
+      let authorName = user.user_metadata?.full_name || user.email;
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('display_name')
+        .eq('created_by', user.email)
+        .maybeSingle();
+      if (profile?.display_name) authorName = profile.display_name;
 
-      const comment = await base44.entities.Comment.create({
-        post_id: post.id,
-        content: newComment.trim(),
-        author_name: authorName,
-      });
+      const { data: comment, error } = await supabase
+        .from('comments')
+        .insert({
+          post_id: post.id,
+          content: newComment.trim(),
+          author_name: authorName,
+          created_by: user.email,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
 
       setComments([comment, ...comments]);
       setNewComment('');
-      
-      // Update post comments count
-      await base44.entities.Post.update(post.id, {
-        comments_count: (post.comments_count || 0) + 1
-      });
+
+      // Update comments count on post
+      await supabase
+        .from('posts')
+        .update({ comments_count: (post.comments_count || 0) + 1 })
+        .eq('id', post.id);
 
       if (onCommentAdded) onCommentAdded();
     } catch (error) {
@@ -168,19 +168,18 @@ export default function CommentSection({ post, user, onCommentAdded }) {
     }
   };
 
-  const userInitials = user?.full_name 
-    ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  const userInitials = user?.user_metadata?.full_name
+    ? user.user_metadata.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.slice(0, 2).toUpperCase() || 'U';
 
   return (
     <div className="border-t border-white/[0.06] bg-white/[0.02]">
-      {/* Comment Form */}
       {user && (
         <div className="p-4 border-b border-white/[0.06]">
           <div className="flex gap-3">
             <Avatar className="h-8 w-8 ring-2 ring-orange-500/20">
               {currentUserPhoto ? (
-                <img src={currentUserPhoto} alt={user.full_name} className="w-full h-full object-cover" />
+                <img src={currentUserPhoto} alt={user.email} className="w-full h-full object-cover" />
               ) : (
                 <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white text-xs">
                   {userInitials}
@@ -195,24 +194,19 @@ export default function CommentSection({ post, user, onCommentAdded }) {
                 className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
                 disabled={isSubmitting}
               />
-              <Button 
+              <Button
                 type="button" onClick={handleSubmit}
                 size="icon"
                 disabled={isSubmitting || !newComment.trim()}
                 className="bg-orange-500 hover:bg-orange-600 text-white"
               >
-                {isSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Comments List */}
       <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
         {isLoading ? (
           <p className="text-white/40 text-sm text-center py-4">{t('loading')}</p>
@@ -221,14 +215,12 @@ export default function CommentSection({ post, user, onCommentAdded }) {
         ) : (
           <AnimatePresence>
             {comments.map((comment) => {
-              const commentInitials = comment.author_name 
+              const commentInitials = comment.author_name
                 ? comment.author_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
                 : 'U';
-              
-              const timeAgo = comment.created_date 
+              const timeAgo = comment.created_date
                 ? formatDistanceToNow(new Date(comment.created_date), { addSuffix: true })
                 : 'just now';
-
               return (
                 <CommentItem
                   key={comment.id}
