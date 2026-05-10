@@ -129,28 +129,44 @@ export default function EditProfileDialog({ user, onUpdate }) {
     }
   };
 
-  const handleSave = async () => {
-    setLoading(true);
-    try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from('user_profiles')
-        .upsert({
-          created_by: currentUser.email,
-          profile_photo: profilePhoto,
-          cover_photo: coverPhoto,
-        }, { onConflict: 'created_by' });
-      if (error) throw error;
-      toast.success(t('profileUpdated'));
-      setOpen(false);
-      if (onUpdate) onUpdate();
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error(t('updateError'));
-    } finally {
-      setLoading(false);
+const handleSave = async () => {
+  setLoading(true);
+  try {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+    console.log('currentUser:', currentUser);
+    console.log('profilePhoto:', profilePhoto);
+    console.log('coverPhoto:', coverPhoto);
+
+    if (!currentUser) {
+      toast.error('Utilisateur non connecté');
+      return;
     }
-  };
+
+    const { error } = await supabase
+      .from('user_profiles')
+      .upsert({
+        created_by: currentUser.email,
+        profile_photo: profilePhoto,
+        cover_photo: coverPhoto,
+      }, { onConflict: 'created_by' });
+
+    if (error) {
+      console.error('Upsert error:', error);
+      toast.error('Erreur : ' + error.message);
+      return;
+    }
+
+    toast.success(t('profileUpdated'));
+    setOpen(false);
+    if (onUpdate) onUpdate();
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    toast.error('Erreur : ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
