@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Camera, Loader2, Upload, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/api/supabaseClient';
@@ -32,12 +32,54 @@ export default function EditProfileDialog({ user, onUpdate }) {
   const [profilePhoto, setProfilePhoto] = useState(user?.profile_photo || '');
   const [coverPhoto, setCoverPhoto] = useState(user?.cover_photo || '');
 
+  useEffect(() => {
+    // Réinitialiser les photos quand le dialog s'ouvre
+    if (open) {
+      setProfilePhoto(user?.profile_photo || '');
+      setCoverPhoto(user?.cover_photo || '');
+    }
+  }, [open]);
+
+  useEffect(() => {
+    // Recevoir l'URL depuis Android après upload direct vers Supabase
+    const handleAndroidImage = (event) => {
+      const { target, url } = event.detail || {};
+      if (!url || !target) {
+        toast.error(t('uploadError'));
+        setUploadingProfile(false);
+        setUploadingCover(false);
+        return;
+      }
+      if (target === 'profile') {
+        setProfilePhoto(url);
+        setUploadingProfile(false);
+        toast.success(t('imageUploaded'));
+      } else if (target === 'cover') {
+        setCoverPhoto(url);
+        setUploadingCover(false);
+        toast.success(t('imageUploaded'));
+      }
+    };
+
+    window.addEventListener('android-image-selected', handleAndroidImage);
+
+    // Fonction appelée par Android via evaluateJavascript
+    window.receiveImageFromAndroid = (target, url) => {
+      window.dispatchEvent(new CustomEvent('android-image-selected', {
+        detail: { target, url }
+      }));
+    };
+
+    return () => {
+      window.removeEventListener('android-image-selected', handleAndroidImage);
+    };
+  }, [t]);
+
   const handleProfileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { toast.error(t('selectImageError')); return; }
     if (file.size > 5 * 1024 * 1024) { toast.error(t('imageTooLarge')); return; }
-
     setUploadingProfile(true);
     try {
       const url = await uploadToSupabase(file, 'profiles');
@@ -56,7 +98,6 @@ export default function EditProfileDialog({ user, onUpdate }) {
     if (!file) return;
     if (!file.type.startsWith('image/')) { toast.error(t('selectImageError')); return; }
     if (file.size > 5 * 1024 * 1024) { toast.error(t('imageTooLarge')); return; }
-
     setUploadingCover(true);
     try {
       const url = await uploadToSupabase(file, 'covers');
@@ -70,12 +111,28 @@ export default function EditProfileDialog({ user, onUpdate }) {
     }
   };
 
+  const handleProfileClick = () => {
+    if (window.Android && window.Android.openImagePicker) {
+      setUploadingProfile(true);
+      window.Android.openImagePicker('profile');
+    } else {
+      document.getElementById('profile-upload').click();
+    }
+  };
+
+  const handleCoverClick = () => {
+    if (window.Android && window.Android.openImagePicker) {
+      setUploadingCover(true);
+      window.Android.openImagePicker('cover');
+    } else {
+      document.getElementById('cover-upload').click();
+    }
+  };
+
   const handleSave = async () => {
     setLoading(true);
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
-
-      // Upsert dans user_profiles
       const { error } = await supabase
         .from('user_profiles')
         .upsert({
@@ -83,9 +140,7 @@ export default function EditProfileDialog({ user, onUpdate }) {
           profile_photo: profilePhoto,
           cover_photo: coverPhoto,
         }, { onConflict: 'created_by' });
-
       if (error) throw error;
-
       toast.success(t('profileUpdated'));
       setOpen(false);
       if (onUpdate) onUpdate();
@@ -110,24 +165,29 @@ export default function EditProfileDialog({ user, onUpdate }) {
           <DialogTitle className="text-white">{t('editProfile')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Profile Photo */}
+
+          {/* Photo de profil */}
           <div>
             <label className="text-white/70 text-sm mb-2 block">{t('profilePhoto')}</label>
             <div className="flex items-center gap-3">
-              {profilePhoto && (
+              {profilePhoto ? (
                 <img src={profilePhoto} alt="Preview" className="w-20 h-20 rounded-full object-cover border-2 border-white/10" />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center">
+                  <Camera className="w-6 h-6 text-white/40" />
+                </div>
               )}
               <div className="flex-1 space-y-2">
                 <input type="file" accept="image/jpeg,image/png,image/jpg" onChange={handleProfileUpload} className="hidden" id="profile-upload" />
                 <Button
                   type="button"
-                  onClick={() => document.getElementById('profile-upload').click()}
+                  onClick={handleProfileClick}
                   disabled={uploadingProfile}
                   variant="outline"
                   className="w-full border-white/20 text-white bg-transparent hover:bg-white/5"
                 >
                   {uploadingProfile ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('uploading')}</>
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Upload en cours...</>
                   ) : (
                     <><Upload className="w-4 h-4 mr-2" />{t('chooseImage')}</>
                   )}
@@ -137,23 +197,27 @@ export default function EditProfileDialog({ user, onUpdate }) {
             </div>
           </div>
 
-          {/* Cover Photo */}
+          {/* Bannière */}
           <div>
             <label className="text-white/70 text-sm mb-2 block">{t('coverPhoto')}</label>
             <div className="space-y-2">
-              {coverPhoto && (
+              {coverPhoto ? (
                 <img src={coverPhoto} alt="Preview" className="w-full h-32 rounded-lg object-cover border-2 border-white/10" />
+              ) : (
+                <div className="w-full h-32 rounded-lg bg-white/10 flex items-center justify-center">
+                  <ImageIcon className="w-8 h-8 text-white/40" />
+                </div>
               )}
               <input type="file" accept="image/jpeg,image/png,image/jpg" onChange={handleCoverUpload} className="hidden" id="cover-upload" />
               <Button
                 type="button"
-                onClick={() => document.getElementById('cover-upload').click()}
+                onClick={handleCoverClick}
                 disabled={uploadingCover}
                 variant="outline"
                 className="w-full border-white/20 text-white bg-transparent hover:bg-white/5"
               >
                 {uploadingCover ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('uploading')}</>
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Upload en cours...</>
                 ) : (
                   <><ImageIcon className="w-4 h-4 mr-2" />{t('chooseBanner')}</>
                 )}
