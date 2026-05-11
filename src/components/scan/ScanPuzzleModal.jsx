@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/api/supabaseClient';
-import { searchAmazon, searchAmazonByName, getProductByAsin, normalizeEAN } from '@/api/scraperApi';
+import { searchAmazon, getProductByAsin } from '@/api/scraperApi';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
@@ -56,8 +56,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
   const [speedMinutes, setSpeedMinutes] = useState('');
   const [speedSeconds, setSpeedSeconds] = useState('');
   const [showSpeedInput, setShowSpeedInput] = useState(false);
-  const [nameSearchInput, setNameSearchInput] = useState('');
-  const [showNameSearch, setShowNameSearch] = useState(false);
 
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
@@ -118,15 +116,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
   };
 
   const fetchPuzzleData = async (code) => {
-    // Normaliser l'EAN (14 chiffres → 13 chiffres si commence par 0)
-    const normalizedCode = normalizeEAN(code);
-    console.log(`EAN: ${code} → normalisé: ${normalizedCode}`);
-
-    setBarcode(normalizedCode);
+    setBarcode(code);
     setLoading(true);
     setPuzzleData(null);
     setExistingPuzzle(null);
     setScanMessage(null);
+    // FIX: reset confirmation à chaque nouveau scan
+    setPuzzleConfirmed(false);
+    setShowNotMyPuzzle(false);
 
     // ETAPE 1 : Verifier si deja dans la collection
     if (!skipCollectionAdd && user) {
@@ -134,7 +131,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         const { data: userPuzzles } = await supabase
           .from('user_puzzles')
           .select('id')
-          .eq('puzzle_reference', normalizedCode)
+          .eq('puzzle_reference', code)
           .eq('created_by', user.email)
           .limit(1);
         if (userPuzzles && userPuzzles.length > 0) {
@@ -152,14 +149,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       let { data: catalogResults } = await supabase
         .from('puzzle_catalog')
         .select('*')
-        .eq('ean', normalizedCode)
+        .eq('ean', code)
         .limit(1);
 
       if (!catalogResults || catalogResults.length === 0) {
         const { data: asinResults } = await supabase
           .from('puzzle_catalog')
           .select('*')
-          .eq('asin', normalizedCode)
+          .eq('asin', code)
           .limit(1);
         catalogResults = asinResults;
       }
@@ -175,6 +172,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
         setScanMessage({ type: 'community', text: 'Super ! Ce puzzle fait deja partie de la collection communautaire.' });
         setExistingPuzzle(catalogPuzzle);
+        // FIX: toujours demander confirmation, même pour les puzzles du catalogue
+        setPuzzleConfirmed(false);
         const puzzleInfo = {
           catalog_id: catalogPuzzle.id,
           name: catalogPuzzle.title,
@@ -185,8 +184,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           pieces: catalogPuzzle.piece_count,
           piece_count: catalogPuzzle.piece_count,
           asin: catalogPuzzle.asin,
-          ean: catalogPuzzle.ean || normalizedCode,
-          sku: catalogPuzzle.asin || normalizedCode,
+          ean: catalogPuzzle.ean || code,
+          sku: catalogPuzzle.asin || code,
           category_tag: catalogPuzzle.category_tag,
           amazon_price: catalogPuzzle.amazon_price,
           amazon_rating: catalogPuzzle.amazon_rating,
@@ -209,15 +208,18 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       return;
     }
 
-    // ETAPE 4 : Recherche ScraperAPI intelligente
+    // ETAPE 4 : Recherche Amazon via ScraperAPI
     try {
-      // searchAmazon gère maintenant toute la cascade intelligente
-      const results = await searchAmazon(normalizedCode);
-      console.log('Résultats ScraperAPI:', results);
+      let results = await searchAmazon(code);
+      console.log('Search results:', results);
 
       if (!results || results.length === 0) {
-        setScanMessage({ type: 'error', text: 'Puzzle non trouvé via le code-barres. Essayez une recherche par nom ci-dessous !' });
-        setShowNameSearch(true);
+        results = await searchAmazon(`puzzle ${code}`);
+        console.log('Search fallback:', results);
+      }
+
+      if (!results || results.length === 0) {
+        setScanMessage({ type: 'error', text: 'Puzzle non trouve sur Amazon. Ajoutez-le manuellement !' });
         setActiveTab('manual');
         setLoading(false);
         return;
@@ -228,43 +230,33 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
       let brand = item.brand || '';
       let pieces = null;
-      let imageUrl = item.image || item.thumbnail || '';
-      let title = item.name || item.title || '';
+      let imageUrl = item.image?.link || item.thumbnail || '';
+      let title = item.title || item.name || '';
+      let asin = item.asin || '';
 
       // ETAPE 5 : getProductByAsin pour données complètes
-      if (item.asin) {
+      if (asin) {
         try {
-          const detail = await getProductByAsin(item.asin);
-          console.log('ScraperAPI getProductByAsin:', detail);
+          const detail = await getProductByAsin(asin);
+          console.log('Product detail:', detail);
 
-          if (detail?.name) title = detail.name;
+          if (detail?.title) title = detail.title;
+          if (detail?.brand) brand = detail.brand;
 
-          if (detail?.product_information?.marque) {
-            brand = detail.product_information.marque;
-          } else if (detail?.brand) {
-            brand = detail.brand.replace('Visiter la boutique ', '').trim();
+          if (detail?.main_image?.link) {
+            imageUrl = detail.main_image.link;
+          } else if (detail?.images?.[0]?.link) {
+            imageUrl = detail.images[0].link;
           }
 
-          if (detail?.high_res_images?.[0]) {
-            imageUrl = detail.high_res_images[0];
-          } else if (detail?.images?.[0]) {
-            imageUrl = detail.images[0];
-          }
-
-          const prodInfo = detail?.product_information || {};
-          const piecesEntry = Object.entries(prodInfo).find(([k, v]) =>
-            k.toLowerCase().includes('pi') ||
-            String(v).toLowerCase().includes('pièces') ||
-            String(v).toLowerCase().includes('pieces')
-          );
-          if (piecesEntry) {
-            const match = String(piecesEntry[1]).match(/(\d+)/);
-            if (match) pieces = parseInt(match[1]);
-          }
-
-          if (!pieces) {
-            const titleMatch = title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/);
+          if (!pieces && detail?.title) {
+            const titleMatch = detail.title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/);
             if (titleMatch) pieces = parseInt(titleMatch[1].replace(/\s/g, ''));
+          }
+
+          if (!pieces && detail?.feature_bullets_flat) {
+            const match = detail.feature_bullets_flat.match(/(\d+)\s*[Pp]i[èe]ces?/);
+            if (match) pieces = parseInt(match[1]);
           }
 
           if (!pieces && detail?.feature_bullets?.length) {
@@ -272,6 +264,11 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
               const match = bullet.match(/(\d+)\s*[Pp]i[èe]ces?/);
               if (match) { pieces = parseInt(match[1]); break; }
             }
+          }
+
+          if (!pieces) {
+            const titleMatch = title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/);
+            if (titleMatch) pieces = parseInt(titleMatch[1].replace(/\s/g, ''));
           }
 
         } catch (e) {
@@ -287,23 +284,24 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         image_hd: imageUrl,
         pieces,
         piece_count: pieces,
-        asin: item.asin || '',
-        ean: normalizedCode,
-        sku: item.asin || normalizedCode,
-        amazon_price: item.pricing || item.price?.value || null,
-        amazon_rating: item.average_rating || item.rating || null,
-        link: item.asin ? `https://www.amazon.com/dp/${item.asin}` : '',
+        asin,
+        ean: code,
+        sku: asin || code,
+        amazon_price: item.price?.value || null,
+        amazon_rating: item.rating || null,
+        link: asin ? `https://www.amazon.com/dp/${asin}` : '',
         isPending: true,
       };
 
       setPuzzleData(puzzleInfo);
+      // FIX: toujours demander confirmation pour les puzzles ScraperAPI aussi
+      setPuzzleConfirmed(false);
       setLoading(false);
       if (skipCollectionAdd && onPuzzleAdded) onPuzzleAdded(puzzleInfo);
 
     } catch (error) {
-      console.error('ScraperAPI error:', error);
-      setScanMessage({ type: 'error', text: 'Puzzle non trouvé. Essayez une recherche par nom ci-dessous !' });
-      setShowNameSearch(true);
+      console.error('Search error:', error);
+      setScanMessage({ type: 'error', text: 'Puzzle non trouve. Ajoutez-le manuellement !' });
       setActiveTab('manual');
       setLoading(false);
     }
@@ -327,6 +325,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
       isPending: true,
     };
     setPuzzleData(data);
+    // Saisie manuelle : l'utilisateur a saisi lui-même, confirmation directe
+    setPuzzleConfirmed(true);
     if (skipCollectionAdd && onPuzzleAdded) onPuzzleAdded(data);
   };
 
@@ -488,8 +488,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setSpeedMinutes('');
     setSpeedSeconds('');
     setShowSpeedInput(false);
-    setNameSearchInput('');
-    setShowNameSearch(false);
+    setPuzzleConfirmed(false);
+    setShowNotMyPuzzle(false);
     setActiveTab(isMobile ? 'scanner' : 'manual');
     onClose();
   };
@@ -515,16 +515,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setSpeedMinutes('');
     setSpeedSeconds('');
     setShowSpeedInput(false);
-    setNameSearchInput('');
-    setShowNameSearch(false);
     setCameraReady(false);
     setScanning(false);
     setActiveTab(isMobile ? 'scanner' : 'manual');
   };
 
   const handleBarcodeSubmit = async () => {
-    if (barcodeInput.length !== 12 && barcodeInput.length !== 13 && barcodeInput.length !== 14) {
-      toast.error('Le code-barres doit contenir 12, 13 ou 14 chiffres');
+    if (barcodeInput.length !== 13 && barcodeInput.length !== 14) {
+      toast.error('Le code-barres doit contenir 13 ou 14 chiffres');
       return;
     }
     await fetchPuzzleData(barcodeInput);
@@ -536,58 +534,6 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setScanMessage(null);
     setPuzzleData(newPuzzleData);
     setPuzzleConfirmed(true);
-  };
-
-  // Recherche par nom (pour les puzzles dont le code-barres ne retourne rien)
-  const handleNameSearch = async () => {
-    if (!nameSearchInput.trim()) return;
-    setLoading(true);
-    setScanMessage(null);
-    try {
-      const results = await searchAmazonByName(nameSearchInput.trim());
-      if (!results || results.length === 0) {
-        setScanMessage({ type: 'error', text: 'Aucun puzzle trouvé pour ce nom. Essayez un autre terme ou ajoutez manuellement.' });
-        setLoading(false);
-        return;
-      }
-      const item = results[0];
-      await consumeCredit();
-      let brand = item.brand || '';
-      let pieces = null;
-      let imageUrl = item.image || item.thumbnail || '';
-      let title = item.name || item.title || '';
-      if (item.asin) {
-        try {
-          const detail = await getProductByAsin(item.asin);
-          if (detail?.name) title = detail.name;
-          if (detail?.product_information?.marque) brand = detail.product_information.marque;
-          else if (detail?.brand) brand = detail.brand.replace('Visiter la boutique ', '').trim();
-          if (detail?.high_res_images?.[0]) imageUrl = detail.high_res_images[0];
-          const prodInfo = detail?.product_information || {};
-          const piecesEntry = Object.entries(prodInfo).find(([k, v]) =>
-            k.toLowerCase().includes('pi') || String(v).toLowerCase().includes('pièces') || String(v).toLowerCase().includes('pieces')
-          );
-          if (piecesEntry) { const m = String(piecesEntry[1]).match(/(\d+)/); if (m) pieces = parseInt(m[1]); }
-          if (!pieces) { const m = title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/); if (m) pieces = parseInt(m[1].replace(/\s/g, '')); }
-        } catch (e) { console.error('getProductByAsin error:', e); }
-      }
-      const puzzleInfo = {
-        name: title, title, brand, image: imageUrl, image_hd: imageUrl,
-        pieces, piece_count: pieces, asin: item.asin || '', ean: barcode,
-        sku: item.asin || barcode,
-        amazon_price: item.pricing || item.price?.value || null,
-        amazon_rating: item.average_rating || item.rating || null,
-        link: item.asin ? `https://www.amazon.fr/dp/${item.asin}` : '',
-        isPending: true,
-      };
-      setPuzzleData(puzzleInfo);
-      setShowNameSearch(false);
-      setLoading(false);
-    } catch (err) {
-      console.error('Name search error:', err);
-      setScanMessage({ type: 'error', text: 'Erreur lors de la recherche. Ajoutez manuellement.' });
-      setLoading(false);
-    }
   };
 
   return (
@@ -610,382 +556,362 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
             </div>
           )}
 
-          {!isGuest && (<>
-            {!puzzleData && !showSuccess && scanMessage && (
-              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                className={`rounded-xl p-4 text-center text-sm font-medium border ${
-                  scanMessage.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-300'
-                  : scanMessage.type === 'community' ? 'bg-green-500/10 border-green-500/30 text-green-300'
-                  : scanMessage.type === 'limit' ? 'bg-orange-500/10 border-orange-500/30 text-orange-300'
-                  : scanMessage.type === 'pending' ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-                  : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
-                }`}
-              >
-                {scanMessage.text}
-              </motion.div>
-            )}
+          {!isGuest && (
+            <>
+              {!puzzleData && !showSuccess && scanMessage && (
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                  className={`rounded-xl p-4 text-center text-sm font-medium border ${
+                    scanMessage.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                    : scanMessage.type === 'community' ? 'bg-green-500/10 border-green-500/30 text-green-300'
+                    : scanMessage.type === 'limit' ? 'bg-orange-500/10 border-orange-500/30 text-orange-300'
+                    : scanMessage.type === 'pending' ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                    : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
+                  }`}
+                >
+                  {scanMessage.text}
+                </motion.div>
+              )}
 
-            {!creditsLoading && !showSuccess && (
-              <div className={`flex items-center justify-center gap-2 text-xs rounded-lg px-3 py-2 ${
-                remaining === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                : remaining <= 2 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-                : 'bg-white/5 text-white/40 border border-white/10'
-              }`}>
-                <span>🔍</span>
-                <span>{remaining === 0 ? `Limite atteinte - ${DAILY_LIMIT} scans utilises aujourd'hui` : `${remaining} scan${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''} aujourd'hui`}</span>
-              </div>
-            )}
-
-            {!puzzleData && !showSuccess && scanMessage?.type !== 'pending' && showNameSearch && (
-              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl p-4 border border-orange-500/30 bg-orange-500/5 space-y-3"
-              >
-                <p className="text-orange-300 text-sm font-medium text-center">🔍 Rechercher par nom du puzzle</p>
-                <p className="text-white/50 text-xs text-center">Ex : "Villainous 1000 pièces", "Ravensburger château"</p>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Nom du puzzle..."
-                    value={nameSearchInput}
-                    onChange={e => setNameSearchInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleNameSearch()}
-                    className="bg-white/5 border-white/20 text-white flex-1"
-                  />
-                  <Button
-                    onClick={handleNameSearch}
-                    disabled={!nameSearchInput.trim() || loading}
-                    className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Chercher'}
-                  </Button>
+              {!creditsLoading && !showSuccess && (
+                <div className={`flex items-center justify-center gap-2 text-xs rounded-lg px-3 py-2 ${
+                  remaining === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  : remaining <= 2 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                  : 'bg-white/5 text-white/40 border border-white/10'
+                }`}>
+                  <span>🔍</span>
+                  <span>{remaining === 0 ? `Limite atteinte - ${DAILY_LIMIT} scans utilises aujourd'hui` : `${remaining} scan${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''} aujourd'hui`}</span>
                 </div>
-              </motion.div>
-            )}
-              <>
-                {isMobile ? (
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="bg-white/5 border border-white/10 w-full">
-                      <TabsTrigger value="scanner" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1">
-                        <Barcode className="w-4 h-4 mr-2" />Scanner
-                      </TabsTrigger>
-                      <TabsTrigger value="manual" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1">
-                        <Edit className="w-4 h-4 mr-2" />Saisie Manuelle
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="scanner" className="mt-4">
-                      <div className="space-y-4">
-                        <div id="file-reader-temp" style={{ display: 'none' }}></div>
-                        {!cameraReady && !loading && (
-                          <div className="flex flex-col items-center justify-center py-8 space-y-6">
-                            <div className="w-24 h-24 rounded-full bg-orange-500/10 border-2 border-orange-500/30 flex items-center justify-center">
-                              <Barcode className="w-12 h-12 text-orange-400" />
-                            </div>
-                            <Button onClick={handleActivateCamera} className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-                              Activer la Camera
-                            </Button>
-                            <div className="w-full max-w-sm">
-                              <div className="text-white/50 text-sm text-center mb-3">ou saisir le code-barres</div>
-                              <div className="flex gap-2">
-                                <Input type="text" placeholder="12, 13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider" maxLength={14} />
-                                <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 12 && barcodeInput.length !== 13 && barcodeInput.length !== 14} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50">OK</Button>
+              )}
+
+              {!puzzleData && !showSuccess && scanMessage?.type !== 'pending' && (
+                <>
+                  {isMobile ? (
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                      <TabsList className="bg-white/5 border border-white/10 w-full">
+                        <TabsTrigger value="scanner" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1">
+                          <Barcode className="w-4 h-4 mr-2" />Scanner
+                        </TabsTrigger>
+                        <TabsTrigger value="manual" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1">
+                          <Edit className="w-4 h-4 mr-2" />Saisie Manuelle
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="scanner" className="mt-4">
+                        <div className="space-y-4">
+                          <div id="file-reader-temp" style={{ display: 'none' }}></div>
+                          {!cameraReady && !loading && (
+                            <div className="flex flex-col items-center justify-center py-8 space-y-6">
+                              <div className="w-24 h-24 rounded-full bg-orange-500/10 border-2 border-orange-500/30 flex items-center justify-center">
+                                <Barcode className="w-12 h-12 text-orange-400" />
+                              </div>
+                              <Button onClick={handleActivateCamera} className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                                Activer la Camera
+                              </Button>
+                              <div className="w-full max-w-sm">
+                                <div className="text-white/50 text-sm text-center mb-3">ou saisir le code-barres</div>
+                                <div className="flex gap-2">
+                                  <Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider" maxLength={14} />
+                                  <Button onClick={handleBarcodeSubmit} disabled={barcodeInput.length !== 13 && barcodeInput.length !== 14} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50">OK</Button>
+                                </div>
                               </div>
                             </div>
+                          )}
+                          {cameraReady && (
+                            <>
+                              <div id="reader" ref={scannerRef} className="w-full rounded-lg overflow-hidden bg-black/50 border border-white/10" style={{ minHeight: '300px' }} />
+                              <p className="text-white/50 text-sm text-center">Positionnez le code-barres devant la camera</p>
+                            </>
+                          )}
+                          {loading && (
+                            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                              <Loader2 className="w-12 h-12 text-orange-400 animate-spin" />
+                              <p className="text-white font-semibold">Recherche en cours...</p>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="manual" className="mt-4">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-white/70 text-sm mb-2 block">Nom du Puzzle *</label>
+                            <Input placeholder="Ex: Tour Eiffel" value={manualData.name} onChange={(e) => setManualData({...manualData, name: e.target.value})} className="bg-white/5 border-white/10 text-white" />
                           </div>
-                        )}
-                        {cameraReady && (
-                          <>
-                            <div id="reader" ref={scannerRef} className="w-full rounded-lg overflow-hidden bg-black/50 border border-white/10" style={{ minHeight: '300px' }} />
-                            <p className="text-white/50 text-sm text-center">Positionnez le code-barres devant la camera</p>
-                          </>
-                        )}
-                        {loading && (
-                          <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                            <Loader2 className="w-12 h-12 text-orange-400 animate-spin" />
-                            <p className="text-white font-semibold">Recherche en cours...</p>
+                          <div>
+                            <label className="text-white/70 text-sm mb-2 block">Marque</label>
+                            <Input placeholder="Ex: Ravensburger" value={manualData.brand} onChange={(e) => setManualData({...manualData, brand: e.target.value})} className="bg-white/5 border-white/10 text-white" />
                           </div>
-                        )}
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="manual" className="mt-4">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-white/70 text-sm mb-2 block">Nom du Puzzle *</label>
-                          <Input placeholder="Ex: Tour Eiffel" value={manualData.name} onChange={(e) => setManualData({...manualData, name: e.target.value})} className="bg-white/5 border-white/10 text-white" />
+                          <div>
+                            <label className="text-white/70 text-sm mb-2 block">Nombre de Pieces *</label>
+                            <Input type="number" placeholder="Ex: 1000" value={manualData.pieces} onChange={(e) => setManualData({...manualData, pieces: e.target.value})} className="bg-white/5 border-white/10 text-white" />
+                          </div>
+                          <div>
+                            <label className="text-white/70 text-sm mb-2 block">Image URL</label>
+                            <Input placeholder="https://..." value={manualData.image} onChange={(e) => setManualData({...manualData, image: e.target.value})} className="bg-white/5 border-white/10 text-white" />
+                          </div>
+                          <div>
+                            <label className="text-white/70 text-sm mb-2 block">Reference / SKU</label>
+                            <Input placeholder="Ex: 12345678" value={manualData.sku} onChange={(e) => setManualData({...manualData, sku: e.target.value})} className="bg-white/5 border-white/10 text-white" />
+                          </div>
+                          <Button onClick={handleManualSubmit} className="w-full bg-orange-500 hover:bg-orange-600">Continuer</Button>
                         </div>
-                        <div>
-                          <label className="text-white/70 text-sm mb-2 block">Marque</label>
-                          <Input placeholder="Ex: Ravensburger" value={manualData.brand} onChange={(e) => setManualData({...manualData, brand: e.target.value})} className="bg-white/5 border-white/10 text-white" />
-                        </div>
-                        <div>
-                          <label className="text-white/70 text-sm mb-2 block">Nombre de Pieces *</label>
-                          <Input type="number" placeholder="Ex: 1000" value={manualData.pieces} onChange={(e) => setManualData({...manualData, pieces: e.target.value})} className="bg-white/5 border-white/10 text-white" />
-                        </div>
-                        <div>
-                          <label className="text-white/70 text-sm mb-2 block">Image URL</label>
-                          <Input placeholder="https://..." value={manualData.image} onChange={(e) => setManualData({...manualData, image: e.target.value})} className="bg-white/5 border-white/10 text-white" />
-                        </div>
-                        <div>
-                          <label className="text-white/70 text-sm mb-2 block">Reference / SKU</label>
-                          <Input placeholder="Ex: 12345678" value={manualData.sku} onChange={(e) => setManualData({...manualData, sku: e.target.value})} className="bg-white/5 border-white/10 text-white" />
-                        </div>
-                        <Button onClick={handleManualSubmit} className="w-full bg-orange-500 hover:bg-orange-600">Continuer</Button>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                ) : (
-                  <div className="space-y-4 mt-4">
-                    <div className="text-center mb-6">
-                      <Barcode className="w-16 h-16 text-orange-500 mx-auto mb-3" />
-                      <h3 className="text-white text-lg font-semibold mb-1">Saisir le code-barres</h3>
-                      <p className="text-white/60 text-sm">Entrez les 13 ou 14 chiffres du code-barres</p>
-                    </div>
-                    <div className="bg-white/5 rounded-lg p-4 mb-4 border border-white/10">
-                      <p className="text-white/70 text-xs text-center mb-3">Les chiffres se trouvent sous les barres :</p>
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="flex gap-[2px] justify-center">
-                          {[1,0,1,0,1,1,0,0,1,0,1,1,0,1,0,0,1,1,0,1,0,1,1,0,0,1,0,1,0,1,1,0].map((bar, i) => (
-                            <div key={i} className={`w-1 h-12 ${bar ? 'bg-black' : 'bg-white'}`} />
-                          ))}
-                        </div>
-                        <div className="relative">
-                          <div className="absolute -top-1 -left-1 right-[-4px] bottom-[-4px] border-2 border-red-500 rounded animate-pulse"></div>
-                          <div className="text-black font-mono text-sm tracking-wider bg-white px-2 py-1 rounded">5 412345 678901</div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Input type="text" placeholder="12, 13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg" maxLength={14} disabled={loading} />
-                      <Button onClick={handleBarcodeSubmit} disabled={(barcodeInput.length !== 12 && barcodeInput.length !== 13 && barcodeInput.length !== 14) || loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6">
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'OK'}
-                      </Button>
-                    </div>
-                    {loading && (
-                      <div className="flex flex-col items-center justify-center py-8 space-y-4">
-                        <Loader2 className="w-12 h-12 text-orange-400 animate-spin" />
-                        <p className="text-white font-semibold">Recherche en cours...</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-
-            {!puzzleData && !showSuccess && !skipCollectionAdd && scanMessage?.type !== 'pending' && (
-              <div className="mt-4">
-                <button type="button" onClick={() => setShowPersonalModal(true)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 transition-all group"
-                >
-                  <span className="text-2xl">🧩</span>
-                  <div className="text-left">
-                    <p className="text-purple-300 text-sm font-medium">Ajouter un puzzle personnalise</p>
-                    <p className="text-white/30 text-xs">Non scannable - Visible uniquement dans votre collection</p>
-                  </div>
-                </button>
-              </div>
-            )}
-
-            {puzzleData && !showSuccess && !skipCollectionAdd && (
-              <div className="space-y-4">
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg overflow-hidden border border-white/10 bg-black/20">
-                  {puzzleData.image ? (
-                    <img src={puzzleData.image} alt={puzzleData.name} className="w-full h-48 object-cover" />
+                      </TabsContent>
+                    </Tabs>
                   ) : (
-                    <div className="w-full h-48 flex items-center justify-center bg-white/5">
-                      <ImageIcon className="w-12 h-12 text-white/30" />
-                    </div>
-                  )}
-                </motion.div>
-
-                {scanMessage && (
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                    className={`rounded-xl p-4 text-center text-sm font-medium border ${
-                      scanMessage.type === 'community' ? 'bg-green-500/10 border-green-500/30 text-green-300'
-                      : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
-                    }`}
-                  >
-                    {scanMessage.text}
-                  </motion.div>
-                )}
-
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-                  <div className="rounded-lg bg-white/5 border border-white/10 p-3">
-                    <label className="text-white/50 text-xs mb-1 block">Nom du puzzle</label>
-                    <p className="text-white text-sm leading-relaxed break-words">{puzzleData.name || 'Non renseigne'}</p>
-                  </div>
-                  <div className="rounded-lg bg-white/5 border border-white/10 p-3">
-                    <label className="text-white/50 text-xs mb-1 block">Marque</label>
-                    <p className="text-white text-sm">{puzzleData.brand || 'Non renseigne'}</p>
-                  </div>
-                  <div className="rounded-lg bg-white/5 border border-white/10 p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-white/50 text-xs">Nombre de pieces</label>
-                      {!editingPieces && (
-                        <button onClick={() => { setEditingPieces(true); setEditedPieces(String(puzzleData.pieces || '')); }} className="text-orange-400 text-xs hover:text-orange-300 flex items-center gap-1">
-                          <Edit2 className="w-3 h-3" /> Modifier
-                        </button>
-                      )}
-                    </div>
-                    {editingPieces ? (
-                      <div className="flex gap-2 mt-1">
-                        <Input type="number" value={editedPieces} onChange={(e) => setEditedPieces(e.target.value)} className="bg-white/10 border-white/20 text-white h-8 text-sm" autoFocus />
-                        <Button size="sm" onClick={() => { const val = parseInt(editedPieces); if (val > 0) setPuzzleData(prev => ({ ...prev, pieces: val, piece_count: val })); setEditingPieces(false); }} className="bg-orange-500 hover:bg-orange-600 h-8 px-3">
-                          <Check className="w-3 h-3" />
+                    <div className="space-y-4 mt-4">
+                      <div className="text-center mb-6">
+                        <Barcode className="w-16 h-16 text-orange-500 mx-auto mb-3" />
+                        <h3 className="text-white text-lg font-semibold mb-1">Saisir le code-barres</h3>
+                        <p className="text-white/60 text-sm">Entrez les 13 ou 14 chiffres du code-barres</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4 mb-4 border border-white/10">
+                        <p className="text-white/70 text-xs text-center mb-3">Les chiffres se trouvent sous les barres :</p>
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="flex gap-[2px] justify-center">
+                            {[1,0,1,0,1,1,0,0,1,0,1,1,0,1,0,0,1,1,0,1,0,1,1,0,0,1,0,1,0,1,1,0].map((bar, i) => (
+                              <div key={i} className={`w-1 h-12 ${bar ? 'bg-black' : 'bg-white'}`} />
+                            ))}
+                          </div>
+                          <div className="relative">
+                            <div className="absolute -top-1 -left-1 right-[-4px] bottom-[-4px] border-2 border-red-500 rounded animate-pulse"></div>
+                            <div className="text-black font-mono text-sm tracking-wider bg-white px-2 py-1 rounded">5 412345 678901</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg" maxLength={14} disabled={loading} />
+                        <Button onClick={handleBarcodeSubmit} disabled={(barcodeInput.length !== 13 && barcodeInput.length !== 14) || loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6">
+                          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'OK'}
                         </Button>
                       </div>
-                    ) : (
-                      <p className="text-white text-sm">{puzzleData.pieces ? `${puzzleData.pieces} pieces` : 'Non renseigne - utilisez Modifier'}</p>
-                    )}
-                  </div>
-                  {puzzleData.link && (
-                    <div className="rounded-lg bg-white/5 border border-white/10 p-3">
-                      <label className="text-white/50 text-xs mb-1 block">Lien Amazon</label>
-                      <a href={puzzleData.link} target="_blank" rel="noopener noreferrer" className="text-orange-400 text-sm hover:text-orange-300 underline break-all">
-                        Voir sur Amazon
-                      </a>
+                      {loading && (
+                        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                          <Loader2 className="w-12 h-12 text-orange-400 animate-spin" />
+                          <p className="text-white font-semibold">Recherche en cours...</p>
+                        </div>
+                      )}
                     </div>
                   )}
-                </motion.div>
+                </>
+              )}
 
-                {showNotMyPuzzle ? (
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 bg-orange-500/5 border border-orange-500/20 rounded-xl p-5">
-                    <div className="text-center">
-                      <span className="text-3xl mb-3 block">🤔</span>
-                      <p className="text-white font-semibold mb-1">Ce puzzle ne correspond pas ?</p>
-                      <p className="text-white/50 text-sm">Ajoutez-le manuellement avec les bonnes informations.</p>
+              {!puzzleData && !showSuccess && !skipCollectionAdd && scanMessage?.type !== 'pending' && (
+                <div className="mt-4">
+                  <button type="button" onClick={() => setShowPersonalModal(true)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 transition-all group"
+                  >
+                    <span className="text-2xl">🧩</span>
+                    <div className="text-left">
+                      <p className="text-purple-300 text-sm font-medium">Ajouter un puzzle personnalise</p>
+                      <p className="text-white/30 text-xs">Non scannable - Visible uniquement dans votre collection</p>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <Button onClick={() => setShowManualModal(true)} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white">Ajouter manuellement</Button>
-                      <Button onClick={() => setShowNotMyPuzzle(false)} variant="ghost" className="w-full text-white/50 hover:text-white text-sm">Retour</Button>
-                    </div>
+                  </button>
+                </div>
+              )}
+
+              {puzzleData && !showSuccess && !skipCollectionAdd && (
+                <div className="space-y-4">
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg overflow-hidden border border-white/10 bg-black/20">
+                    {puzzleData.image ? (
+                      <img src={puzzleData.image} alt={puzzleData.name} className="w-full h-48 object-cover" />
+                    ) : (
+                      <div className="w-full h-48 flex items-center justify-center bg-white/5">
+                        <ImageIcon className="w-12 h-12 text-white/30" />
+                      </div>
+                    )}
                   </motion.div>
-                ) : !puzzleConfirmed ? (
+
+                  {scanMessage && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                      className={`rounded-xl p-4 text-center text-sm font-medium border ${
+                        scanMessage.type === 'community' ? 'bg-green-500/10 border-green-500/30 text-green-300'
+                        : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
+                      }`}
+                    >
+                      {scanMessage.text}
+                    </motion.div>
+                  )}
+
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-                    <p className="text-white/70 text-sm text-center font-medium">C'est bien votre puzzle ?</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button onClick={() => setPuzzleConfirmed(true)} className="bg-green-600 hover:bg-green-700 text-white">Oui, c'est lui !</Button>
-                      <Button onClick={() => setShowNotMyPuzzle(true)} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">Non, ce n'est pas lui</Button>
+                    <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+                      <label className="text-white/50 text-xs mb-1 block">Nom du puzzle</label>
+                      <p className="text-white text-sm leading-relaxed break-words">{puzzleData.name || 'Non renseigne'}</p>
                     </div>
-                  </motion.div>
-                ) : (
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                      <label className="text-sm text-white/70 mb-3 block">Ma note (optionnel)</label>
-                      <StarRating value={scanRating} onChange={setScanRating} size="lg" />
+                    <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+                      <label className="text-white/50 text-xs mb-1 block">Marque</label>
+                      <p className="text-white text-sm">{puzzleData.brand || 'Non renseigne'}</p>
                     </div>
-
-                    <input ref={userPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleUserPhotoUpload} />
-                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                      <label className="text-sm text-white/70 mb-3 block">Ma photo du puzzle (optionnel)</label>
-                      {userPhoto ? (
-                        <div className="relative">
-                          <img src={userPhoto} alt="Ma photo" className="w-full h-32 object-cover rounded-lg" />
-                          <button type="button" onClick={() => setUserPhoto(null)} className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
-                            <X className="w-3.5 h-3.5 text-white" />
+                    <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-white/50 text-xs">Nombre de pieces</label>
+                        {!editingPieces && (
+                          <button onClick={() => { setEditingPieces(true); setEditedPieces(String(puzzleData.pieces || '')); }} className="text-orange-400 text-xs hover:text-orange-300 flex items-center gap-1">
+                            <Edit2 className="w-3 h-3" /> Modifier
                           </button>
+                        )}
+                      </div>
+                      {editingPieces ? (
+                        <div className="flex gap-2 mt-1">
+                          <Input type="number" value={editedPieces} onChange={(e) => setEditedPieces(e.target.value)} className="bg-white/10 border-white/20 text-white h-8 text-sm" autoFocus />
+                          <Button size="sm" onClick={() => { const val = parseInt(editedPieces); if (val > 0) setPuzzleData(prev => ({ ...prev, pieces: val, piece_count: val })); setEditingPieces(false); }} className="bg-orange-500 hover:bg-orange-600 h-8 px-3">
+                            <Check className="w-3 h-3" />
+                          </Button>
                         </div>
                       ) : (
-                        <button type="button" onClick={() => userPhotoInputRef.current?.click()} disabled={isUploadingPhoto} className="w-full flex items-center justify-center gap-2 py-4 rounded-xl border-2 border-dashed border-white/20 text-white/50 hover:border-orange-500/50 hover:text-orange-400 transition-all disabled:opacity-50">
-                          {isUploadingPhoto ? <><Loader2 className="w-4 h-4 animate-spin" /> Upload...</> : <><Camera className="w-4 h-4" /> Ajouter ma photo</>}
-                        </button>
+                        <p className="text-white text-sm">{puzzleData.pieces ? `${puzzleData.pieces} pieces` : 'Non renseigne - utilisez Modifier'}</p>
                       )}
                     </div>
-
-                    <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                      <button type="button" onClick={() => setShowSpeedInput(!showSpeedInput)} className="w-full flex items-center justify-between">
-                        <label className="text-sm text-white/70 cursor-pointer">Temps record (optionnel)</label>
-                        <span className="text-white/30 text-xs">{showSpeedInput ? 'Masquer' : 'Ajouter'}</span>
-                      </button>
-                      {showSpeedInput && (
-                        <div className="mt-3 flex gap-2 items-center">
-                          <div className="flex-1">
-                            <Input type="number" placeholder="0" min="0" value={speedHours} onChange={e => setSpeedHours(e.target.value)} className="bg-white/10 border-white/20 text-white text-center h-9" />
-                            <p className="text-white/30 text-[10px] text-center mt-0.5">h</p>
-                          </div>
-                          <span className="text-white/30 font-bold mb-3">:</span>
-                          <div className="flex-1">
-                            <Input type="number" placeholder="0" min="0" max="59" value={speedMinutes} onChange={e => setSpeedMinutes(e.target.value)} className="bg-white/10 border-white/20 text-white text-center h-9" />
-                            <p className="text-white/30 text-[10px] text-center mt-0.5">min</p>
-                          </div>
-                          <span className="text-white/30 font-bold mb-3">:</span>
-                          <div className="flex-1">
-                            <Input type="number" placeholder="0" min="0" max="59" value={speedSeconds} onChange={e => setSpeedSeconds(e.target.value)} className="bg-white/10 border-white/20 text-white text-center h-9" />
-                            <p className="text-white/30 text-[10px] text-center mt-0.5">sec</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-white/70 mb-3 block">Ou ajouter ce puzzle ?</label>
-                      <div className="grid grid-cols-3 gap-3">
-                        {[
-                          { value: 'wishlist', emoji: '⭐', label: 'Wishlist', active: 'border-yellow-500 bg-yellow-500/20 text-yellow-400' },
-                          { value: 'inbox', emoji: '📦', label: "Je l'ai chez moi", active: 'border-blue-500 bg-blue-500/20 text-blue-400' },
-                          { value: 'done', emoji: '✅', label: 'Termine', active: 'border-green-500 bg-green-500/20 text-green-400' },
-                        ].map(({ value, emoji, label, active }) => (
-                          <button key={value} type="button" onClick={() => setSelectedStatus(value)}
-                            className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${selectedStatus === value ? active : 'border-white/10 bg-white/5 text-white/70'}`}
-                          >
-                            <span className="text-3xl">{emoji}</span>
-                            <span className="text-sm font-medium">{label}</span>
-                          </button>
-                        ))}
+                    {puzzleData.link && (
+                      <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+                        <label className="text-white/50 text-xs mb-1 block">Lien Amazon</label>
+                        <a href={puzzleData.link} target="_blank" rel="noopener noreferrer" className="text-orange-400 text-sm hover:text-orange-300 underline break-all">
+                          Voir sur Amazon
+                        </a>
                       </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <Button onClick={() => handleAddPuzzle(false)} disabled={!selectedStatus} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white disabled:opacity-50">
-                        <Barcode className="w-4 h-4 mr-2" />Ajouter + Scanner un autre
-                      </Button>
-                      <Button onClick={() => handleAddPuzzle(true)} disabled={!selectedStatus} variant="outline" className="w-full border-white/20 text-white hover:bg-white/5 disabled:opacity-50">
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Valider {pendingBatch.length > 0 ? `(${pendingBatch.length + 1} puzzles)` : ''}
-                      </Button>
-                    </div>
+                    )}
                   </motion.div>
-                )}
-              </div>
-            )}
 
-            {showAddAnother && !showSuccess && (
-              <div className="space-y-6 py-6">
-                <div className="text-center">
-                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-16 h-16 rounded-full bg-green-500/20 border-2 border-green-500/40 flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle2 className="w-8 h-8 text-green-400" />
-                  </motion.div>
-                  <h3 className="text-white font-bold text-lg mb-1">Puzzle ajoute au lot !</h3>
-                  <p className="text-white/50 text-sm">{pendingBatch.length} puzzle{pendingBatch.length > 1 ? 's' : ''} en attente</p>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Button onClick={handleReset} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-                    <Barcode className="w-4 h-4 mr-2" />Scanner un autre puzzle
-                  </Button>
-                  <Button onClick={() => saveBatch(pendingBatch)} disabled={loading} variant="outline" className="w-full border-white/20 text-white hover:bg-white/5">
-                    {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                    Terminer ({pendingBatch.length} puzzle{pendingBatch.length > 1 ? 's' : ''})
-                  </Button>
-                </div>
-              </div>
-            )}
+                  {showNotMyPuzzle ? (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 bg-orange-500/5 border border-orange-500/20 rounded-xl p-5">
+                      <div className="text-center">
+                        <span className="text-3xl mb-3 block">🤔</span>
+                        <p className="text-white font-semibold mb-1">Ce puzzle ne correspond pas ?</p>
+                        <p className="text-white/50 text-sm">Ajoutez-le manuellement avec les bonnes informations.</p>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Button onClick={() => setShowManualModal(true)} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white">Ajouter manuellement</Button>
+                        <Button onClick={() => setShowNotMyPuzzle(false)} variant="ghost" className="w-full text-white/50 hover:text-white text-sm">Retour</Button>
+                      </div>
+                    </motion.div>
+                  ) : !puzzleConfirmed ? (
+                    // FIX: confirmation affichée pour TOUS les puzzles scannés (catalogue + ScraperAPI)
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+                      <p className="text-white/70 text-sm text-center font-medium">C'est bien votre puzzle ?</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button onClick={() => setPuzzleConfirmed(true)} className="bg-green-600 hover:bg-green-700 text-white">Oui, c'est lui !</Button>
+                        <Button onClick={() => setShowNotMyPuzzle(true)} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">Non, ce n'est pas lui</Button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                      <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                        <label className="text-sm text-white/70 mb-3 block">Ma note (optionnel)</label>
+                        <StarRating value={scanRating} onChange={setScanRating} size="lg" />
+                      </div>
 
-            {showSuccess && (
-              <div className="space-y-6 py-8">
-                <div className="flex justify-center items-center mb-6">
-                  <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/40">
-                    <span className="text-5xl">🧩</span>
-                  </motion.div>
+                      <input ref={userPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleUserPhotoUpload} />
+                      <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                        <label className="text-sm text-white/70 mb-3 block">Ma photo du puzzle (optionnel)</label>
+                        {userPhoto ? (
+                          <div className="relative">
+                            <img src={userPhoto} alt="Ma photo" className="w-full h-32 object-cover rounded-lg" />
+                            <button type="button" onClick={() => setUserPhoto(null)} className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
+                              <X className="w-3.5 h-3.5 text-white" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={() => userPhotoInputRef.current?.click()} disabled={isUploadingPhoto} className="w-full flex items-center justify-center gap-2 py-4 rounded-xl border-2 border-dashed border-white/20 text-white/50 hover:border-orange-500/50 hover:text-orange-400 transition-all disabled:opacity-50">
+                            {isUploadingPhoto ? <><Loader2 className="w-4 h-4 animate-spin" /> Upload...</> : <><Camera className="w-4 h-4" /> Ajouter ma photo</>}
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                        <button type="button" onClick={() => setShowSpeedInput(!showSpeedInput)} className="w-full flex items-center justify-between">
+                          <label className="text-sm text-white/70 cursor-pointer">Temps record (optionnel)</label>
+                          <span className="text-white/30 text-xs">{showSpeedInput ? 'Masquer' : 'Ajouter'}</span>
+                        </button>
+                        {showSpeedInput && (
+                          <div className="mt-3 flex gap-2 items-center">
+                            <div className="flex-1">
+                              <Input type="number" placeholder="0" min="0" value={speedHours} onChange={e => setSpeedHours(e.target.value)} className="bg-white/10 border-white/20 text-white text-center h-9" />
+                              <p className="text-white/30 text-[10px] text-center mt-0.5">h</p>
+                            </div>
+                            <span className="text-white/30 font-bold mb-3">:</span>
+                            <div className="flex-1">
+                              <Input type="number" placeholder="0" min="0" max="59" value={speedMinutes} onChange={e => setSpeedMinutes(e.target.value)} className="bg-white/10 border-white/20 text-white text-center h-9" />
+                              <p className="text-white/30 text-[10px] text-center mt-0.5">min</p>
+                            </div>
+                            <span className="text-white/30 font-bold mb-3">:</span>
+                            <div className="flex-1">
+                              <Input type="number" placeholder="0" min="0" max="59" value={speedSeconds} onChange={e => setSpeedSeconds(e.target.value)} className="bg-white/10 border-white/20 text-white text-center h-9" />
+                              <p className="text-white/30 text-[10px] text-center mt-0.5">sec</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="text-sm text-white/70 mb-3 block">Ou ajouter ce puzzle ?</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          {[
+                            { value: 'wishlist', emoji: '⭐', label: 'Wishlist', active: 'border-yellow-500 bg-yellow-500/20 text-yellow-400' },
+                            { value: 'inbox', emoji: '📦', label: "Je l'ai chez moi", active: 'border-blue-500 bg-blue-500/20 text-blue-400' },
+                            { value: 'done', emoji: '✅', label: 'Termine', active: 'border-green-500 bg-green-500/20 text-green-400' },
+                          ].map(({ value, emoji, label, active }) => (
+                            <button key={value} type="button" onClick={() => setSelectedStatus(value)}
+                              className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${selectedStatus === value ? active : 'border-white/10 bg-white/5 text-white/70'}`}
+                            >
+                              <span className="text-3xl">{emoji}</span>
+                              <span className="text-sm font-medium">{label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <Button onClick={() => handleAddPuzzle(false)} disabled={!selectedStatus} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white disabled:opacity-50">
+                          <Barcode className="w-4 h-4 mr-2" />Ajouter + Scanner un autre
+                        </Button>
+                        {/* FIX: "Valider" seul si 1er puzzle, "Valider (N puzzles)" si lot en cours */}
+                        <Button onClick={() => handleAddPuzzle(true)} disabled={!selectedStatus} variant="outline" className="w-full border-white/20 text-white hover:bg-white/5 disabled:opacity-50">
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          {pendingBatch.length > 0 ? `Valider (${pendingBatch.length + 1} puzzles)` : 'Valider'}
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-                  <h3 className="text-2xl font-bold text-white mb-2">Puzzle ajoute !</h3>
-                  <p className="text-white/60 mb-6">Votre collection a ete mise a jour</p>
-                  <div className="flex flex-col gap-3">
-                    <Button onClick={handleReset} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white">Scanner un autre puzzle</Button>
-                    <Button onClick={handleClose} variant="outline" className="w-full border-white/20 text-white hover:bg-white/5">Terminer</Button>
+              )}
+
+              {showAddAnother && !showSuccess && (
+                <div className="space-y-6 py-6">
+                  <div className="text-center">
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-16 h-16 rounded-full bg-green-500/20 border-2 border-green-500/40 flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-green-400" />
+                    </motion.div>
+                    <h3 className="text-white font-bold text-lg mb-1">Puzzle ajoute au lot !</h3>
+                    <p className="text-white/50 text-sm">{pendingBatch.length} puzzle{pendingBatch.length > 1 ? 's' : ''} en attente</p>
                   </div>
-                </motion.div>
-              </div>
-            )}
-          </>)}
+                  <div className="flex flex-col gap-3">
+                    <Button onClick={handleReset} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                      <Barcode className="w-4 h-4 mr-2" />Scanner un autre puzzle
+                    </Button>
+                    <Button onClick={() => saveBatch(pendingBatch)} disabled={loading} variant="outline" className="w-full border-white/20 text-white hover:bg-white/5">
+                      {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                      Terminer ({pendingBatch.length} puzzle{pendingBatch.length > 1 ? 's' : ''})
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {showSuccess && (
+                <div className="space-y-6 py-8">
+                  <div className="flex justify-center items-center mb-6">
+                    <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/40">
+                      <span className="text-5xl">🧩</span>
+                    </motion.div>
+                  </div>
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+                    <h3 className="text-2xl font-bold text-white mb-2">Puzzle ajoute !</h3>
+                    <p className="text-white/60 mb-6">Votre collection a ete mise a jour</p>
+                    <div className="flex flex-col gap-3">
+                      <Button onClick={handleReset} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white">Scanner un autre puzzle</Button>
+                      <Button onClick={handleClose} variant="outline" className="w-full border-white/20 text-white hover:bg-white/5">Terminer</Button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
