@@ -426,7 +426,7 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
   const labelCls = "text-white/60 text-xs font-medium mb-1 block";
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto flex items-start lg:items-center justify-center p-0 lg:p-6"
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto flex items-start lg:items-center justify-center p-0 lg:p-6">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
