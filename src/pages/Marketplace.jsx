@@ -426,12 +426,12 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
   const labelCls = "text-white/60 text-xs font-medium mb-1 block";
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 lg:p-8">
+    <div className="fixed inset-0 pt-16 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 lg:p-6">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="bg-[#0a0a2e] border border-white/10 rounded-2xl w-full max-w-xl flex flex-col overflow-hidden"
-        style={{ height: "min(90vh, 800px)" }}
+        style={{ height: "min(85vh, 750px)" }}
       >
         <div className="flex-shrink-0 bg-[#0a0a2e] flex items-center justify-between p-4 border-b border-white/10">
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5">
