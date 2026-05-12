@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useLanguage } from '@/components/LanguageContext';
-import { Sparkles, TrendingUp, Calendar, ChevronRight, Scan, Star, Puzzle, BookOpen, PlayCircle } from 'lucide-react';
+import { Sparkles, TrendingUp, Calendar, ChevronRight, Scan, Star, Puzzle, BookOpen, PlayCircle, ShoppingBag, Tag, RefreshCw, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import ScanPuzzleModal from '@/components/scan/ScanPuzzleModal';
 import EventModal from '@/components/events/EventModal';
 import PuzzleDetailModal from '@/components/collection/PuzzleDetailModal';
 import ArticleModal from '@/components/home/ArticleModal';
-import { base44 } from '@/api/supabaseClient';
+import { base44, supabase } from '@/api/supabaseClient';
 
 const container = {
   hidden: { opacity: 0 },
@@ -28,6 +28,7 @@ export default function Home() {
   const { isGuest } = useAuth();
   const navigate = useNavigate();
   const [showScanModal, setShowScanModal] = useState(false);
+  const [marketplaceListings, setMarketplaceListings] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedPuzzle, setSelectedPuzzle] = useState(null);
   const [selectedArticle, setSelectedArticle] = useState(null);
@@ -41,13 +42,13 @@ export default function Home() {
     if (isGuest) {
       loadAllPublic();
     } else {
-      Promise.all([loadTopPuzzles(), loadEvents(), loadPageSettings(), loadFeaturedArticles()]).finally(() => setLoading(false));
+      Promise.all([loadTopPuzzles(), loadEvents(), loadPageSettings(), loadFeaturedArticles(), loadMarketplaceListings()]).finally(() => setLoading(false));
     }
   }, [isGuest]);
 
   const loadAllPublic = async () => {
     try {
-      await Promise.all([loadTopPuzzles(), loadEvents(), loadPageSettings(), loadFeaturedArticles()]);
+      await Promise.all([loadTopPuzzles(), loadEvents(), loadPageSettings(), loadFeaturedArticles(), loadMarketplaceListings()]);
     } catch (e) {
       console.error(e);
     } finally {
@@ -101,6 +102,15 @@ export default function Home() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const loadMarketplaceListings = async () => {
+    try {
+      const { data } = await supabase.from('marketplace_listings')
+        .select('*').eq('status', 'active')
+        .order('created_at', { ascending: false }).limit(10);
+      setMarketplaceListings(data || []);
+    } catch (e) {}
   };
 
   const loadFeaturedArticles = async () => {
@@ -295,6 +305,57 @@ export default function Home() {
               ))}
             </div>
         </section>
+
+        {/* Mobile Dernières annonces Marketplace */}
+        {marketplaceListings.length > 0 && (
+          <section className="py-4">
+            <div className="flex items-center justify-between px-4 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4 text-orange-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">Marketplace</h2>
+                  <p className="text-white/40 text-[10px]">Dernières annonces</p>
+                </div>
+              </div>
+              <Link to={createPageUrl('Marketplace')}>
+                <span className="text-orange-400 text-xs font-medium flex items-center gap-0.5">
+                  Voir tout <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </Link>
+            </div>
+            <div className="flex gap-3 px-4 overflow-x-auto pb-2" style={{ scrollSnapType: 'x mandatory' }}>
+              {marketplaceListings.map((listing, index) => (
+                <Link
+                  key={listing.id}
+                  to={createPageUrl('Marketplace')}
+                  className="flex-shrink-0 w-32 rounded-xl overflow-hidden bg-white/5 border border-white/10 active:scale-95 transition-transform"
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  <div className="aspect-square bg-white/5 relative">
+                    {listing.photos?.[0] || listing.puzzle_image ? (
+                      <img src={listing.photos?.[0] || listing.puzzle_image} alt={listing.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ShoppingBag className="w-8 h-8 text-white/20" />
+                      </div>
+                    )}
+                    <div className={`absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${listing.transaction_type === 'vente' ? 'bg-orange-500/90 text-white' : listing.transaction_type === 'echange' ? 'bg-blue-500/90 text-white' : 'bg-green-500/90 text-white'}`}>
+                      {listing.transaction_type === 'vente' ? 'Vente' : listing.transaction_type === 'echange' ? 'Échange' : 'Don'}
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    <p className="text-white text-[10px] font-semibold line-clamp-2 leading-tight mb-1">{listing.title}</p>
+                    <p className="text-orange-400 text-[10px] font-bold">
+                      {listing.transaction_type === 'vente' && listing.price != null ? `${Number(listing.price).toFixed(2)} €` : listing.transaction_type === 'don' ? 'Gratuit' : 'Échange'}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Mobile Événements - vertical cards */}
         <section className="py-4 px-4">
@@ -553,6 +614,68 @@ export default function Home() {
             </motion.div>
             )}
           </section>
+
+        {/* Dernières annonces Marketplace */}
+        {marketplaceListings.length > 0 && (
+          <section className="px-8 py-10">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center">
+                  <ShoppingBag className="w-5 h-5 text-orange-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Marketplace</h2>
+                  <p className="text-white/40 text-xs">Dernières annonces publiées</p>
+                </div>
+              </div>
+              <Link to={createPageUrl('Marketplace')}>
+                <Button variant="ghost" size="sm" className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 gap-1">
+                  Voir tout <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+            <motion.div
+              variants={container}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              className="grid grid-cols-5 gap-4"
+            >
+              {marketplaceListings.slice(0, 10).map((listing) => (
+                <motion.div
+                  key={listing.id}
+                  variants={item}
+                >
+                  <Link
+                    to={createPageUrl('Marketplace')}
+                    className="group block rounded-2xl overflow-hidden bg-white/5 border border-white/[0.06] hover:border-orange-500/30 hover:scale-[1.02] transition-all duration-200"
+                  >
+                    <div className="aspect-square bg-white/5 relative overflow-hidden">
+                      {listing.photos?.[0] || listing.puzzle_image ? (
+                        <img src={listing.photos?.[0] || listing.puzzle_image} alt={listing.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ShoppingBag className="w-10 h-10 text-white/20" />
+                        </div>
+                      )}
+                      <div className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${listing.transaction_type === 'vente' ? 'bg-orange-500/90 text-white' : listing.transaction_type === 'echange' ? 'bg-blue-500/90 text-white' : 'bg-green-500/90 text-white'}`}>
+                        {listing.transaction_type === 'vente' ? 'Vente' : listing.transaction_type === 'echange' ? 'Échange' : 'Don'}
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-white font-semibold text-sm line-clamp-2 leading-tight mb-1">{listing.title}</p>
+                      {listing.puzzle_brand && <p className="text-white/40 text-xs mb-1">{listing.puzzle_brand}</p>}
+                      <p className="text-orange-400 font-bold text-sm">
+                        {listing.transaction_type === 'vente' && listing.price != null ? `${Number(listing.price).toFixed(2)} €` : listing.transaction_type === 'don' ? 'Gratuit 🎁' : 'Échange 🔄'}
+                      </p>
+                      {listing.city && <p className="text-white/30 text-xs mt-0.5">📍 {listing.city}</p>}
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
+            </motion.div>
+          </section>
+        )}
 
         {/* Événements */}
         <section className="px-8 py-10">

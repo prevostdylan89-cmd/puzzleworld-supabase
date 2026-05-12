@@ -436,13 +436,17 @@ function MessageModal({ listing, currentUser, onClose }) {
   const loadMessages = async () => {
     const { data } = await supabase.from('marketplace_messages')
       .select('*').eq('listing_id', listing.id)
-      .or(`sender_email.eq.${currentUser.email},receiver_email.eq.${currentUser.email}`)
+      .or(
+        `and(sender_email.eq.${currentUser.email},receiver_email.eq.${receiverEmail}),and(sender_email.eq.${receiverEmail},receiver_email.eq.${currentUser.email})`
+      )
       .order('created_at', { ascending: true });
     if (data) setMessages(data);
-    // Marquer comme lus
     await supabase.from('marketplace_messages')
       .update({ is_read: true })
-      .eq('listing_id', listing.id).eq('receiver_email', currentUser.email).eq('is_read', false);
+      .eq('listing_id', listing.id)
+      .eq('receiver_email', currentUser.email)
+      .eq('sender_email', receiverEmail)
+      .eq('is_read', false);
   };
 
   const sendMessage = async () => {
@@ -538,6 +542,7 @@ function NewListingForm({ currentUser, onClose, onSuccess, editListing = null })
     puzzle_brand: editListing?.puzzle_brand || '',
     puzzle_pieces: editListing?.puzzle_pieces || ''
   });
+  const [shareToSocial, setShareToSocial] = useState(true);
   const [photos, setPhotos] = useState(editListing?.photos || []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -583,6 +588,25 @@ function NewListingForm({ currentUser, onClose, onSuccess, editListing = null })
       } else {
         const { error } = await supabase.from('marketplace_listings').insert({ ...payload, created_by: currentUser.email });
         if (error) throw error;
+        // Post automatique sur Social si coché
+        if (shareToSocial && !editListing) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: profile } = await supabase.from('user_profiles').select('display_name, profile_photo').eq('created_by', currentUser.email).single();
+            const typeLabel = { vente: 'en vente', echange: 'à échanger', don: 'à donner' }[form.transaction_type] || 'disponible';
+            const priceText = form.transaction_type === 'vente' && form.price ? ` — ${parseFloat(form.price).toFixed(2)} €` : '';
+            await supabase.from('posts').insert({
+              created_by: currentUser.email,
+              author_name: profile?.display_name || currentUser.email,
+              content: `🛍️ Je mets ${typeLabel} : "${form.title.trim()}"${priceText}${form.city ? ` (${form.city})` : ''}. Retrouvez cette annonce dans la Marketplace ! 🧩`,
+              image_url: (payload.photos?.[0] || null),
+              is_completion_post: false,
+              likes_count: 0,
+              comments_count: 0,
+              post_type: 'marketplace'
+            });
+          } catch (e) { console.error('Post social échoué', e); }
+        }
         toast.success('Annonce publiée !');
       }
       onSuccess();
@@ -733,6 +757,25 @@ function NewListingForm({ currentUser, onClose, onSuccess, editListing = null })
               </div>
             )}
           </div>
+
+          {/* Partager sur Social */}
+          {!editListing && (
+            <button
+              onClick={() => setShareToSocial(s => !s)}
+              className={`flex items-center gap-3 w-full p-3 rounded-xl border transition-all ${shareToSocial ? 'border-blue-500/30 bg-blue-500/10 text-blue-400' : 'border-white/10 bg-white/5 text-white/50'}`}
+            >
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-base">📢</span>
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Partager sur Social</p>
+                <p className="text-xs opacity-70">Publier automatiquement un post dans le fil Social</p>
+              </div>
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${shareToSocial ? 'border-blue-400 bg-blue-400' : 'border-white/30'}`}>
+                {shareToSocial && <Check className="w-3 h-3 text-white" />}
+              </div>
+            </button>
+          )}
 
           {/* Photos */}
           <div>
