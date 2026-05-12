@@ -99,7 +99,7 @@ function ListingCard({ listing, currentUser, onOpen, onFavorite, isFavorite }) {
 
 // ─── Modal détail annonce ──────────────────────────────────────────────────────
 
-function ListingModal({ listing, currentUser, onClose, onContact, onReport, isFavorite, onFavorite }) {
+function ListingPage({ listing, currentUser, onClose, onContact, onReport, isFavorite, onFavorite }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [sellerProfile, setSellerProfile] = useState(null);
   const allPhotos = listing.photos?.length > 0 ? listing.photos : listing.puzzle_image ? [listing.puzzle_image] : [];
@@ -109,34 +109,34 @@ function ListingModal({ listing, currentUser, onClose, onContact, onReport, isFa
   useEffect(() => {
     supabase.from('user_profiles').select('display_name, profile_photo').eq('created_by', listing.created_by).single()
       .then(({ data }) => setSellerProfile(data));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [listing.created_by]);
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        className="bg-[#0a0a2e] border border-white/10 rounded-t-3xl lg:rounded-2xl w-full lg:max-w-2xl max-h-[92vh] overflow-y-auto"
-      >
-        {/* Header */}
-        <div className="sticky top-0 bg-[#0a0a2e]/95 backdrop-blur-sm flex items-center justify-between p-4 border-b border-white/10 z-10">
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10">
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
-          <div className="flex items-center gap-2">
-            {currentUser && !isOwn && (
-              <button onClick={() => onFavorite(listing.id)} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${isFavorite ? 'bg-red-500 text-white' : 'bg-white/5 text-white/60 hover:text-red-400'}`}>
-                <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
-              </button>
-            )}
-            {currentUser && !isOwn && (
-              <button onClick={() => onReport(listing.id)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 text-white/40 hover:text-red-400">
-                <Flag className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="max-w-2xl mx-auto"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onClose} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          <span className="text-sm">Retour</span>
+        </button>
+        <div className="flex items-center gap-2">
+          {currentUser && !isOwn && (
+            <button onClick={() => onFavorite(listing.id)} className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${isFavorite ? 'bg-red-500 text-white' : 'bg-white/5 text-white/60 hover:text-red-400'}`}>
+              <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+            </button>
+          )}
+          {currentUser && !isOwn && (
+            <button onClick={() => onReport(listing.id)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 text-white/40 hover:text-red-400">
+              <Flag className="w-4 h-4" />
+            </button>
+          )}
         </div>
+      </div>
 
         {/* Photos */}
         {allPhotos.length > 0 && (
@@ -259,12 +259,11 @@ function ListingModal({ listing, currentUser, onClose, onContact, onReport, isFa
             <div className="text-center text-white/40 text-sm py-2 bg-white/5 rounded-xl">C'est votre annonce</div>
           )}
         </div>
-      </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
-// ─── Modal messagerie ──────────────────────────────────────────────────────────
+// ─── Page messagerie ──────────────────────────────────────────────────────────
 
 function MessageModal({ listing, currentUser, onClose }) {
   const [messages, setMessages] = useState([]);
@@ -309,22 +308,22 @@ function MessageModal({ listing, currentUser, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-end lg:items-center justify-center p-0 lg:p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-[#0a0a2e] border border-white/10 rounded-t-3xl lg:rounded-2xl w-full lg:max-w-lg flex flex-col"
-        style={{ height: '80vh' }}
-      >
-        <div className="flex items-center gap-3 p-4 border-b border-white/10 flex-shrink-0">
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5">
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <p className="text-white font-semibold text-sm truncate">{listing.title}</p>
-            <p className="text-white/40 text-xs">Message au vendeur</p>
-          </div>
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="max-w-2xl mx-auto"
+    >
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={onClose} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          <span className="text-sm">Retour</span>
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold truncate">{listing.title}</p>
+          <p className="text-white/40 text-xs">Message au vendeur</p>
         </div>
+      </div>
+      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col" style={{ height: '60vh' }}>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
             <div className="text-center py-8">
@@ -364,8 +363,8 @@ function MessageModal({ listing, currentUser, onClose }) {
             {sending ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
           </button>
         </div>
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -747,7 +746,7 @@ export default function Marketplace() {
 
   const tabCls = (v) => `flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${activeView === v ? 'bg-orange-500/20 text-orange-400' : 'text-white/60 hover:text-white hover:bg-white/5'}`;
 
-  // Si le form est ouvert (nouvelle annonce ou modification)
+  // Vues pleine page (form, détail annonce, messagerie)
   if ((showNewForm || editingListing) && currentUser) {
     return (
       <div className="max-w-6xl mx-auto p-4 lg:p-8">
@@ -756,6 +755,34 @@ export default function Marketplace() {
           editListing={editingListing}
           onClose={() => { setShowNewForm(false); setEditingListing(null); }}
           onSuccess={() => { setShowNewForm(false); setEditingListing(null); loadListings(); }}
+        />
+      </div>
+    );
+  }
+
+  if (contactListing && currentUser) {
+    return (
+      <div className="max-w-6xl mx-auto p-4 lg:p-8">
+        <MessageModal
+          listing={contactListing}
+          currentUser={currentUser}
+          onClose={() => setContactListing(null)}
+        />
+      </div>
+    );
+  }
+
+  if (selectedListing) {
+    return (
+      <div className="max-w-6xl mx-auto p-4 lg:p-8">
+        <ListingPage
+          listing={selectedListing}
+          currentUser={currentUser}
+          onClose={() => setSelectedListing(null)}
+          onContact={(l) => { setSelectedListing(null); setContactListing(l); }}
+          onReport={reportListing}
+          isFavorite={favorites.includes(selectedListing.id)}
+          onFavorite={toggleFavorite}
         />
       </div>
     );
@@ -976,24 +1003,6 @@ export default function Marketplace() {
 
       {/* Modals */}
       <AnimatePresence>
-        {selectedListing && !contactListing && (
-          <ListingModal
-            listing={selectedListing}
-            currentUser={currentUser}
-            onClose={() => setSelectedListing(null)}
-            onContact={(l) => { setSelectedListing(null); setContactListing(l); }}
-            onReport={reportListing}
-            isFavorite={favorites.includes(selectedListing.id)}
-            onFavorite={toggleFavorite}
-          />
-        )}
-        {contactListing && currentUser && (
-          <MessageModal
-            listing={contactListing}
-            currentUser={currentUser}
-            onClose={() => setContactListing(null)}
-          />
-        )}
 
       </AnimatePresence>
     </div>
