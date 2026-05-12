@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '@/components/LanguageContext';
 import { 
   Calendar, 
@@ -9,8 +9,18 @@ import {
   LogIn,
   Loader2,
   Zap,
-  TriangleAlert
+  TriangleAlert,
+  Users,
+  UserPlus,
+  UserCheck,
+  UserX,
+  MessageCircle,
+  Send,
+  ArrowLeft,
+  ChevronRight,
+  Search
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -34,6 +44,272 @@ import BugReportModal from '@/components/shared/BugReportButton';
 import PersonalPuzzleSection from '@/components/profile/PersonalPuzzleSection';
 import SpeedPuzzleSection from '@/components/profile/SpeedPuzzleSection';
 import { Crown, Camera, TriangleAlert as TA, Zap as ZapIcon } from 'lucide-react';
+
+// ─── Composant Amis intégré ───────────────────────────────────────────────────
+function FriendsTab({ user, t }) {
+  const [friends, setFriends] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedFriend, setSelectedFriend] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('friends');
+  const [unreadConversationsCount, setUnreadConversationsCount] = useState(0);
+  const messagesEndRef = useRef(null);
+  const intervalRef = useRef(null);
+
+
+  useEffect(() => { if (user) loadData(); }, [user]);
+
+  useEffect(() => {
+    if (selectedFriend && user) {
+      loadMessages(selectedFriend.email);
+      intervalRef.current = setInterval(() => loadMessages(selectedFriend.email), 8000);
+      return () => clearInterval(intervalRef.current);
+    }
+  }, [selectedFriend, user]);
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [friendshipsData, usersData] = await Promise.all([
+        base44.entities.Friendship.filter({}),
+        base44.entities.UserProfile.filter({})
+      ]);
+      const acceptedFriends = friendshipsData.filter(
+        f => f.status === 'accepted' && (f.requester_email === user.email || f.addressee_email === user.email)
+      ).map(f => ({
+        email: f.requester_email === user.email ? f.addressee_email : f.requester_email,
+        name: f.requester_email === user.email ? f.addressee_name : f.requester_name,
+        friendshipId: f.id
+      }));
+      const pending = friendshipsData.filter(f => f.status === 'pending' && f.addressee_email === user.email);
+      const sent = friendshipsData.filter(f => f.status === 'pending' && f.requester_email === user.email);
+      setFriends(acceptedFriends);
+      setPendingRequests(pending);
+      setSentRequests(sent);
+      setAllUsers(usersData.filter(u => u.email !== user.email));
+    } catch (e) {}
+    setIsLoading(false);
+  };
+
+  const loadMessages = async (friendEmail) => {
+    if (!user) return;
+    const conversationId = [user.email, friendEmail].sort().join('_');
+    const msgs = await base44.entities.DirectMessage.filter({ conversation_id: conversationId });
+    const unread = msgs.filter(m => !m.is_read && m.receiver_email === user.email);
+    for (const msg of unread) await base44.entities.DirectMessage.update(msg.id, { is_read: true });
+    setMessages(msgs.sort((a, b) => new Date(a.created_date) - new Date(b.created_date)));
+  };
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedFriend || !user) return;
+    const conversationId = [user.email, selectedFriend.email].sort().join('_');
+    await base44.entities.DirectMessage.create({
+      sender_email: user.email, sender_name: user.full_name || user.email,
+      receiver_email: selectedFriend.email, receiver_name: selectedFriend.name,
+      message: newMessage.trim(), conversation_id: conversationId, is_read: false
+    });
+    setNewMessage('');
+    loadMessages(selectedFriend.email);
+  };
+
+  const sendFriendRequest = async (targetUser) => {
+    await base44.entities.Friendship.create({
+      requester_email: user.email, requester_name: user.full_name || user.email,
+      friend_email: targetUser.email, addressee_email: targetUser.email,
+      addressee_name: targetUser.display_name || targetUser.full_name || targetUser.email, status: 'pending'
+    });
+    loadData();
+  };
+
+  const acceptRequest = async (id) => { await base44.entities.Friendship.update(id, { status: 'accepted' }); loadData(); };
+  const declineRequest = async (id) => { await base44.entities.Friendship.delete(id); loadData(); };
+  const removeFriend = async (id) => { await base44.entities.Friendship.delete(id); loadData(); };
+  const isFriend = (email) => friends.some(f => f.email === email);
+  const hasPendingRequest = (email) => pendingRequests.some(r => r.requester_email === email) || sentRequests.some(r => r.addressee_email === email);
+  const filteredUsers = searchQuery.trim().length < 2 ? [] : allUsers.filter(u =>
+    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.friend_code?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 text-orange-400 animate-spin" /></div>;
+
+  const tabCls = "data-[state=active]:bg-orange-500/20 text-xs sm:text-sm";
+  const avatarCls = "h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 text-white flex items-center justify-center rounded-full font-bold text-sm ring-2 ring-orange-500/20";
+
+  return (
+    <div className="space-y-4">
+      {/* Tabs nav */}
+      <div className="flex flex-wrap gap-1 p-1 bg-white/5 border border-white/10 rounded-xl">
+        {[
+          { key: 'friends', label: `${t('friends')} (${friends.length})` },
+          { key: 'messages', label: t('messages'), badge: unreadConversationsCount },
+          { key: 'requests', label: `${t('received')} (${pendingRequests.length})` },
+          { key: 'sent', label: `${t('sent')} (${sentRequests.length})` },
+          { key: 'find', label: t('findFriends') },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 ${activeTab === tab.key ? 'bg-orange-500/20 text-orange-400' : 'text-white/60 hover:text-white'}`}>
+            {tab.label}
+            {tab.badge > 0 && <span className="bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{tab.badge}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Amis */}
+      {activeTab === 'friends' && (
+        friends.length === 0 ? (
+          <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+            <Users className="w-12 h-12 text-white/20 mx-auto mb-4" />
+            <p className="text-white/60">{t('noFriendsYet')}</p>
+          </div>
+        ) : friends.map(friend => (
+          <div key={friend.email} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={avatarCls}>{friend.name?.slice(0,2).toUpperCase()}</div>
+              <p className="text-white font-medium">{friend.name}</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setSelectedFriend(friend); setActiveTab('messages'); }} className="p-2 bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors"><MessageCircle className="w-4 h-4 text-white" /></button>
+              <button onClick={() => removeFriend(friend.friendshipId)} className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-lg transition-colors"><UserX className="w-4 h-4 text-red-400" /></button>
+            </div>
+          </div>
+        ))
+      )}
+
+      {/* Messages */}
+      {activeTab === 'messages' && (
+        friends.length === 0 ? (
+          <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+            <MessageCircle className="w-12 h-12 text-white/20 mx-auto mb-4" />
+            <p className="text-white/60">{t('addFriendsToChatPrompt')}</p>
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            {!selectedFriend ? (
+              <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-white/10"><h3 className="text-white font-semibold">{t('conversations')}</h3></div>
+                {friends.map(friend => (
+                  <button key={friend.email} onClick={() => setSelectedFriend(friend)} className="w-full p-4 flex items-center gap-3 hover:bg-white/5 transition-colors border-b border-white/5">
+                    <div className={avatarCls}>{friend.name?.slice(0,2).toUpperCase()}</div>
+                    <p className="text-white font-medium flex-1 text-left">{friend.name}</p>
+                    <ChevronRight className="w-5 h-5 text-white/30" />
+                  </button>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden flex flex-col" style={{ height: '60vh' }}>
+                <div className="flex items-center gap-3 p-4 border-b border-white/10 flex-shrink-0">
+                  <button onClick={() => setSelectedFriend(null)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10"><ArrowLeft className="w-5 h-5 text-white" /></button>
+                  <div className={avatarCls + " h-9 w-9"}>{selectedFriend.name?.slice(0,2).toUpperCase()}</div>
+                  <p className="text-white font-semibold">{selectedFriend.name}</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {messages.length === 0 && <p className="text-center text-white/30 text-sm py-8">{t('startConversation')}</p>}
+                  {messages.map(msg => {
+                    const isMine = msg.sender_email === user.email;
+                    return (
+                      <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[78%] px-4 py-2 rounded-2xl ${isMine ? 'bg-orange-500 text-white rounded-br-sm' : 'bg-white/10 text-white rounded-bl-sm'}`}>
+                          <p className="text-sm">{msg.message}</p>
+                          <p className={`text-xs mt-1 ${isMine ? 'text-white/70' : 'text-white/40'}`}>{new Date(msg.created_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+                <div className="flex-shrink-0 p-4 border-t border-white/10 flex gap-2">
+                  <Input placeholder="Message..." value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()} className="bg-white/5 border-white/20 text-white flex-1" style={{ fontSize: '16px' }} />
+                  <button onClick={sendMessage} disabled={!newMessage.trim()} className="w-11 h-11 flex items-center justify-center bg-orange-500 hover:bg-orange-600 disabled:opacity-40 rounded-lg transition-colors flex-shrink-0"><Send className="w-4 h-4 text-white" /></button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )
+      )}
+
+      {/* Demandes reçues */}
+      {activeTab === 'requests' && (
+        pendingRequests.length === 0 ? (
+          <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+            <UserPlus className="w-12 h-12 text-white/20 mx-auto mb-4" />
+            <p className="text-white/60">{t('noPendingRequests')}</p>
+          </div>
+        ) : pendingRequests.map(req => (
+          <div key={req.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={avatarCls}>{req.requester_name?.slice(0,2).toUpperCase()}</div>
+              <p className="text-white font-medium">{req.requester_name}</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => acceptRequest(req.id)} className="p-2 bg-green-500/20 hover:bg-green-500/40 rounded-lg transition-colors"><UserCheck className="w-4 h-4 text-green-400" /></button>
+              <button onClick={() => declineRequest(req.id)} className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-lg transition-colors"><UserX className="w-4 h-4 text-red-400" /></button>
+            </div>
+          </div>
+        ))
+      )}
+
+      {/* Demandes envoyées */}
+      {activeTab === 'sent' && (
+        sentRequests.length === 0 ? (
+          <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+            <UserPlus className="w-12 h-12 text-white/20 mx-auto mb-4" />
+            <p className="text-white/60">{t('noSentRequests')}</p>
+          </div>
+        ) : sentRequests.map(req => (
+          <div key={req.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={avatarCls}>{req.addressee_name?.slice(0,2).toUpperCase()}</div>
+              <div>
+                <p className="text-white font-medium">{req.addressee_name}</p>
+                <p className="text-orange-400/70 text-xs">{t('pendingResponse')}</p>
+              </div>
+            </div>
+            <button onClick={() => declineRequest(req.id)} className="flex items-center gap-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-lg text-red-400 text-sm transition-colors"><UserX className="w-4 h-4" />{t('cancel')}</button>
+          </div>
+        ))
+      )}
+
+      {/* Rechercher */}
+      {activeTab === 'find' && (
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <Input placeholder={t('searchByNameOrCode')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10 bg-white/5 border-white/20 text-white" />
+          </div>
+          {searchQuery.trim().length < 2 && <div className="text-center py-8 text-white/40 text-sm">{t('typeAtLeast2Chars')}</div>}
+          {filteredUsers.map(targetUser => (
+            <div key={targetUser.email} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={avatarCls}>{(targetUser.full_name || targetUser.email)?.slice(0,2).toUpperCase()}</div>
+                <div>
+                  <p className="text-white font-medium">{targetUser.display_name || targetUser.full_name}</p>
+                  {targetUser.friend_code && <p className="text-orange-400/70 text-xs">@{targetUser.friend_code}</p>}
+                </div>
+              </div>
+              {isFriend(targetUser.email) ? (
+                <span className="flex items-center gap-1 px-3 py-1.5 bg-white/10 rounded-lg text-white/50 text-sm"><UserCheck className="w-4 h-4" />{t('friend')}</span>
+              ) : hasPendingRequest(targetUser.email) ? (
+                <span className="px-3 py-1.5 bg-white/10 rounded-lg text-white/50 text-sm">{t('pending')}</span>
+              ) : (
+                <button onClick={() => sendFriendRequest(targetUser)} className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 rounded-lg text-white text-sm transition-colors"><UserPlus className="w-4 h-4" />{t('addFriend')}</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const BADGE_LEVELS = [
   { level: 1, badgeName: 'Novice', threshold: 1, nextThreshold: 10 },
@@ -397,6 +673,11 @@ const authUser = await base44.auth.me().catch(() => null);
               <span className="ml-1.5 hidden sm:inline">Speed</span>
               <span className="ml-1.5 sm:hidden">⚡</span>
             </TabsTrigger>
+            <TabsTrigger value="amis" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1 text-xs sm:text-sm">
+              <Users className="w-4 h-4 shrink-0" />
+              <span className="ml-1.5 hidden sm:inline">Amis</span>
+              <span className="ml-1.5 sm:hidden">👥</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="collection" className="mt-6">
@@ -410,6 +691,9 @@ const authUser = await base44.auth.me().catch(() => null);
           </TabsContent>
           <TabsContent value="speed" className="mt-6">
             <SpeedPuzzleSection user={user} />
+          </TabsContent>
+          <TabsContent value="amis" className="mt-6">
+            <FriendsTab user={user} t={t} />
           </TabsContent>
         </Tabs>
 

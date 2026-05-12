@@ -55,7 +55,7 @@ import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
 import FAQ from './pages/FAQ';
 import FixPuzzlePieces from './pages/FixPuzzlePieces';
-import Friends from './pages/Friends';
+import Marketplace from './pages/Marketplace';
 import Home from './pages/Home';
 import Messages from './pages/Messages';
 import MigratePrices from './pages/MigratePrices';
@@ -77,7 +77,7 @@ export const PAGES = {
     "Events": Events,
     "FAQ": FAQ,
     "FixPuzzlePieces": FixPuzzlePieces,
-    "Friends": Friends,
+    "Marketplace": Marketplace,
     "Home": Home,
     "Messages": Messages,
     "MigratePrices": MigratePrices,

@@ -20,7 +20,8 @@ import {
   Calendar,
   ArrowLeft,
   Globe,
-  TriangleAlert
+  TriangleAlert,
+  ShoppingBag
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -82,7 +83,7 @@ function LayoutContent({ children, currentPageName }) {
     { name: 'Events', icon: Calendar, page: 'Events' },
     { name: t('online'), icon: Gamepad2, page: 'OnlinePuzzles' },
     { name: t('profile'), icon: User, page: 'Profile' },
-    { name: t('friends'), icon: Users, page: 'Friends' },
+    { name: 'Marketplace', icon: ShoppingBag, page: 'Marketplace' },
     { name: 'Blog', icon: BookOpen, page: 'Blog' },
   ];
 
@@ -93,7 +94,7 @@ function LayoutContent({ children, currentPageName }) {
     { name: t('online'), icon: Gamepad2, page: 'OnlinePuzzles' },
     { name: 'Events', icon: Puzzle, page: 'Events' },
     { name: t('profile'), icon: User, page: 'Profile' },
-    { name: t('friends'), icon: Users, page: 'Friends' },
+    { name: 'Marketplace', icon: ShoppingBag, page: 'Marketplace' },
     { name: 'Blog', icon: BookOpen, page: 'Blog' },
   ];
 
@@ -245,7 +246,7 @@ function LayoutContent({ children, currentPageName }) {
                 >
                   <item.icon className={`w-4 h-4 ${isActive ? 'text-orange-400' : 'group-hover:text-orange-400'}`} />
                   <span className="font-medium text-sm">{item.name}</span>
-                  {item.page === 'Friends' && unreadMessagesCount > 0 && (
+                  {item.page === 'Marketplace' && false && (
                     <span className="bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                       {unreadMessagesCount}
                     </span>
@@ -345,7 +346,7 @@ function LayoutContent({ children, currentPageName }) {
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50">
         <div className="flex items-center justify-between px-4 h-14">
-          {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Friends', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
+          {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Marketplace', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
             <button 
               onClick={() => setShowMobileMenu(true)}
               className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center active:bg-white/15 transition-colors"
@@ -455,7 +456,7 @@ function LayoutContent({ children, currentPageName }) {
                     >
                       <item.icon className="w-5 h-5" />
                       <span className="font-medium">{item.name}</span>
-                      {item.page === 'Friends' && unreadMessagesCount > 0 && (
+                      {item.page === 'Marketplace' && false && (
                         <span className="ml-auto bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                           {unreadMessagesCount}
                         </span>
