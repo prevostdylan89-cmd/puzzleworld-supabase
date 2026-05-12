@@ -426,12 +426,12 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
   const labelCls = "text-white/60 text-xs font-medium mb-1 block";
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 lg:p-8">
       <motion.div
-        initial={{ opacity: 0, y: "100%" }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-[#0a0a2e] border-t border-white/10 w-full lg:max-w-xl lg:rounded-2xl lg:border flex flex-col"
-        style={{ height: "92dvh", paddingBottom: "env(safe-area-inset-bottom)" }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-[#0a0a2e] border border-white/10 rounded-2xl w-full max-w-xl flex flex-col"
+        style={{ maxHeight: "calc(100vh - 4rem)", paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="sticky top-0 bg-[#0a0a2e]/95 backdrop-blur-sm flex items-center justify-between p-4 border-b border-white/10">
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5">
