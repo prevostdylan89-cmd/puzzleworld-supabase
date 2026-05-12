@@ -426,12 +426,12 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
   const labelCls = "text-white/60 text-xs font-medium mb-1 block";
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto flex items-start lg:items-center justify-center p-0 lg:p-6">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center">
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 0, y: "100%" }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-[#0a0a2e] border border-white/10 rounded-t-3xl lg:rounded-2xl w-full lg:max-w-xl my-0 lg:my-auto"
-        style={{ minHeight: 'auto', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="bg-[#0a0a2e] border-t border-white/10 w-full lg:max-w-xl lg:rounded-2xl lg:border flex flex-col"
+        style={{ height: "92dvh", paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="sticky top-0 bg-[#0a0a2e]/95 backdrop-blur-sm flex items-center justify-between p-4 border-b border-white/10">
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5">
@@ -448,7 +448,7 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
           </button>
         </div>
 
-        <div className="p-5 space-y-5">
+        <div className="p-5 space-y-5 overflow-y-auto flex-1">
           {/* Type transaction */}
           <div>
             <label className={labelCls}>Type d'annonce *</label>
