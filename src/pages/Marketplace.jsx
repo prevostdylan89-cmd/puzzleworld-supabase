@@ -426,29 +426,29 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
   const labelCls = "text-white/60 text-xs font-medium mb-1 block";
 
   return (
-    <div className="fixed inset-0 pt-16 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 lg:p-6">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-[#0a0a2e] border border-white/10 rounded-2xl w-full max-w-xl flex flex-col overflow-hidden"
-        style={{ height: "min(85vh, 750px)" }}
-      >
-        <div className="flex-shrink-0 bg-[#0a0a2e] flex items-center justify-between p-4 border-b border-white/10">
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5">
-            <X className="w-5 h-5 text-white" />
-          </button>
-          <h2 className="text-white font-bold">Nouvelle annonce</h2>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl text-sm disabled:opacity-50 flex items-center gap-2"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Publier
-          </button>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="max-w-xl mx-auto"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onClose} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          <span className="text-sm">Retour</span>
+        </button>
+        <h2 className="text-white font-bold text-lg">Nouvelle annonce</h2>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl text-sm disabled:opacity-50 flex items-center gap-2 transition-colors"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          Publier
+        </button>
+      </div>
 
-        <div className="p-5 space-y-5 overflow-y-auto flex-1 min-h-0">
+      <div className="space-y-5">
           {/* Type transaction */}
           <div>
             <label className={labelCls}>Type d'annonce *</label>
@@ -595,10 +595,11 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhoto} />
           </div>
         </div>
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   );
 }
+
 
 // ─── Page principale Marketplace ───────────────────────────────────────────────
 
@@ -729,6 +730,19 @@ export default function Marketplace() {
   const favoriteListings = listings.filter(l => favorites.includes(l.id));
 
   const tabCls = (v) => `flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${activeView === v ? 'bg-orange-500/20 text-orange-400' : 'text-white/60 hover:text-white hover:bg-white/5'}`;
+
+  // Si le form est ouvert, afficher uniquement le form (page dans la page)
+  if (showNewForm && currentUser) {
+    return (
+      <div className="max-w-6xl mx-auto p-4 lg:p-8">
+        <NewListingForm
+          currentUser={currentUser}
+          onClose={() => setShowNewForm(false)}
+          onSuccess={() => { setShowNewForm(false); loadListings(); }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-4 lg:p-8">
@@ -960,13 +974,7 @@ export default function Marketplace() {
             onClose={() => setContactListing(null)}
           />
         )}
-        {showNewForm && currentUser && (
-          <NewListingForm
-            currentUser={currentUser}
-            onClose={() => setShowNewForm(false)}
-            onSuccess={() => { setShowNewForm(false); loadListings(); toast.success('Annonce publiée !'); }}
-          />
-        )}
+
       </AnimatePresence>
     </div>
   );
