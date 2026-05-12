@@ -430,10 +430,10 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-[#0a0a2e] border border-white/10 rounded-2xl w-full max-w-xl flex flex-col"
-        style={{ maxHeight: "calc(100vh - 4rem)", paddingBottom: "env(safe-area-inset-bottom)" }}
+        className="bg-[#0a0a2e] border border-white/10 rounded-2xl w-full max-w-xl flex flex-col overflow-hidden"
+        style={{ height: "min(90vh, 800px)" }}
       >
-        <div className="sticky top-0 bg-[#0a0a2e]/95 backdrop-blur-sm flex items-center justify-between p-4 border-b border-white/10">
+        <div className="flex-shrink-0 bg-[#0a0a2e] flex items-center justify-between p-4 border-b border-white/10">
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5">
             <X className="w-5 h-5 text-white" />
           </button>
@@ -448,7 +448,7 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
           </button>
         </div>
 
-        <div className="p-5 space-y-5 overflow-y-auto flex-1">
+        <div className="p-5 space-y-5 overflow-y-auto flex-1 min-h-0">
           {/* Type transaction */}
           <div>
             <label className={labelCls}>Type d'annonce *</label>
