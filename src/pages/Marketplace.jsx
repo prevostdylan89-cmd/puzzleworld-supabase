@@ -591,20 +591,20 @@ function NewListingForm({ currentUser, onClose, onSuccess, editListing = null })
         // Post automatique sur Social si coché
         if (shareToSocial && !editListing) {
           try {
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data: profile } = await supabase.from('user_profiles').select('display_name, profile_photo').eq('created_by', currentUser.email).single();
+            const { data: profile } = await supabase.from('user_profiles').select('display_name').eq('created_by', currentUser.email).single();
             const typeLabel = { vente: 'en vente', echange: 'à échanger', don: 'à donner' }[form.transaction_type] || 'disponible';
             const priceText = form.transaction_type === 'vente' && form.price ? ` — ${parseFloat(form.price).toFixed(2)} €` : '';
-            await supabase.from('posts').insert({
+            const postContent = `🛍️ Je mets ${typeLabel} : "${form.title.trim()}"${priceText}${form.city ? ` (${form.city})` : ''}. Retrouvez cette annonce dans la Marketplace ! 🧩`;
+            const { error: postError } = await supabase.from('posts').insert({
               created_by: currentUser.email,
-              author_name: profile?.display_name || currentUser.email,
-              content: `🛍️ Je mets ${typeLabel} : "${form.title.trim()}"${priceText}${form.city ? ` (${form.city})` : ''}. Retrouvez cette annonce dans la Marketplace ! 🧩`,
-              image_url: (payload.photos?.[0] || null),
+              author_name: profile?.display_name || currentUser.email.split('@')[0],
+              content: postContent,
+              image_url: photos?.[0] || null,
               is_completion_post: false,
               likes_count: 0,
-              comments_count: 0,
-              post_type: 'marketplace'
+              comments_count: 0
             });
+            if (postError) console.error('Post social error:', postError);
           } catch (e) { console.error('Post social échoué', e); }
         }
         toast.success('Annonce publiée !');
