@@ -595,11 +595,9 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhoto} />
           </div>
         </div>
-      </div>
     </motion.div>
   );
 }
-
 
 // ─── Page principale Marketplace ───────────────────────────────────────────────
 
