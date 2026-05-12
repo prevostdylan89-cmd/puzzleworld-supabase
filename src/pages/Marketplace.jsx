@@ -221,9 +221,9 @@ function ShippingGuide({ pieces }) {
                 {[
                   { num: '1', text: 'Emballer le puzzle dans sa boîte, entourer de papier bulle' },
                   { num: '2', text: 'Mettre dans un carton adapté à la taille de la boîte' },
-                  { num: '3', text: 'Créer et imprimer l'étiquette sur le site du transporteur' },
+                  { num: '3', text: "Créer et imprimer l'étiquette sur le site du transporteur" },
                   { num: '4', text: 'Déposer le colis au point relais ou bureau de poste' },
-                  { num: '5', text: 'Partager le numéro de suivi avec l'acheteur via la messagerie' },
+                  { num: '5', text: "Partager le numéro de suivi avec l'acheteur via la messagerie" },
                 ].map(step => (
                   <div key={step.num} className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
