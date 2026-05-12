@@ -99,6 +99,158 @@ function ListingCard({ listing, currentUser, onOpen, onFavorite, isFavorite }) {
 
 // ─── Modal détail annonce ──────────────────────────────────────────────────────
 
+// ─── Guide expédition ─────────────────────────────────────────────────────────
+
+function ShippingGuide({ pieces }) {
+  const [open, setOpen] = useState(false);
+
+  // Estimation poids selon nombre de pièces
+  const getWeight = (p) => {
+    if (!p) return { g: 800, label: '~800g' };
+    if (p <= 500) return { g: 500, label: '~500g' };
+    if (p <= 1000) return { g: 800, label: '~800g' };
+    if (p <= 2000) return { g: 1400, label: '~1.4kg' };
+    if (p <= 3000) return { g: 2000, label: '~2kg' };
+    return { g: 3000, label: '~3kg+' };
+  };
+
+  const { g, label } = getWeight(pieces);
+
+  // Prix estimés Mondial Relay et Colissimo selon poids
+  const getMRPrice = (g) => {
+    if (g <= 500) return '3.49';
+    if (g <= 1000) return '4.29';
+    if (g <= 2000) return '5.49';
+    return '6.99';
+  };
+
+  const getColissimoPrice = (g) => {
+    if (g <= 500) return '6.55';
+    if (g <= 1000) return '7.65';
+    if (g <= 2000) return '9.15';
+    return '11.40';
+  };
+
+  return (
+    <div className="mt-2">
+      {/* Badge vendeur */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-orange-500/10 border border-orange-500/20 rounded-xl mb-3">
+        <Package className="w-4 h-4 text-orange-400 flex-shrink-0" />
+        <span className="text-orange-400 text-sm font-medium">C'est votre annonce</span>
+      </div>
+
+      {/* Accordéon guide expédition */}
+      <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="w-full flex items-center justify-between p-4 text-left hover:bg-white/5 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+              <Truck className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-white font-medium text-sm">Guide d'expédition</p>
+              <p className="text-white/40 text-xs">Comment envoyer ce puzzle</p>
+            </div>
+          </div>
+          <ChevronRight className={`w-5 h-5 text-white/40 transition-transform ${open ? 'rotate-90' : ''}`} />
+        </button>
+
+        {open && (
+          <div className="px-4 pb-4 space-y-4 border-t border-white/10 pt-4">
+
+            {/* Estimation poids */}
+            <div className="bg-white/5 rounded-xl p-3 flex items-center gap-3">
+              <Package className="w-5 h-5 text-white/40 flex-shrink-0" />
+              <div>
+                <p className="text-white/60 text-xs">Poids estimé{pieces ? ` pour ${pieces} pièces` : ''}</p>
+                <p className="text-white font-semibold">{label}</p>
+              </div>
+            </div>
+
+            {/* Comparatif transporteurs */}
+            <div>
+              <p className="text-white/40 text-xs font-medium mb-2 uppercase tracking-wide">Comparer les transporteurs</p>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Mondial Relay */}
+                <div className="bg-[#e8231a]/10 border border-[#e8231a]/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded bg-[#e8231a] flex items-center justify-center text-white text-[10px] font-bold">MR</div>
+                    <p className="text-white font-semibold text-sm">Mondial Relay</p>
+                  </div>
+                  <p className="text-2xl font-bold text-white">~{getMRPrice(g)} €</p>
+                  <p className="text-white/40 text-xs mt-1">Dépôt en point relais</p>
+                  <p className="text-white/40 text-xs">3-5 jours ouvrés</p>
+                  <a
+                    href="https://www.mondialrelay.fr/envoi-de-colis/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex items-center justify-center gap-1 w-full py-2 bg-[#e8231a]/20 hover:bg-[#e8231a]/30 text-[#e8231a] rounded-lg text-xs font-medium transition-colors"
+                  >
+                    Créer une étiquette →
+                  </a>
+                </div>
+
+                {/* Colissimo */}
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded bg-yellow-500 flex items-center justify-center text-white text-[10px] font-bold">LP</div>
+                    <p className="text-white font-semibold text-sm">Colissimo</p>
+                  </div>
+                  <p className="text-2xl font-bold text-white">~{getColissimoPrice(g)} €</p>
+                  <p className="text-white/40 text-xs mt-1">Bureau de poste</p>
+                  <p className="text-white/40 text-xs">2-3 jours ouvrés</p>
+                  <a
+                    href="https://www.laposte.fr/colissimo"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex items-center justify-center gap-1 w-full py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    Créer une étiquette →
+                  </a>
+                </div>
+              </div>
+              <p className="text-white/30 text-xs mt-2 text-center">* Prix indicatifs, peuvent varier selon les dimensions</p>
+            </div>
+
+            {/* Étapes */}
+            <div>
+              <p className="text-white/40 text-xs font-medium mb-3 uppercase tracking-wide">Étapes d'expédition</p>
+              <div className="space-y-2">
+                {[
+                  { num: '1', text: 'Emballer le puzzle dans sa boîte, entourer de papier bulle' },
+                  { num: '2', text: 'Mettre dans un carton adapté à la taille de la boîte' },
+                  { num: '3', text: 'Créer et imprimer l'étiquette sur le site du transporteur' },
+                  { num: '4', text: 'Déposer le colis au point relais ou bureau de poste' },
+                  { num: '5', text: 'Partager le numéro de suivi avec l'acheteur via la messagerie' },
+                ].map(step => (
+                  <div key={step.num} className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {step.num}
+                    </div>
+                    <p className="text-white/70 text-sm leading-relaxed">{step.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Conseil paiement */}
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+              <p className="text-green-400 text-xs font-semibold mb-1">💡 Conseil paiement</p>
+              <p className="text-white/60 text-xs leading-relaxed">
+                Recommandez à l'acheteur d'utiliser <strong className="text-white">PayPal Biens & Services</strong> — vous êtes tous les deux protégés en cas de litige. Évitez les virements bancaires avec des inconnus.
+              </p>
+            </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Fiche annonce (page inline) ──────────────────────────────────────────────
 function ListingPage({ listing, currentUser, onClose, onContact, onReport, isFavorite, onFavorite }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [sellerProfile, setSellerProfile] = useState(null);
@@ -256,7 +408,7 @@ function ListingPage({ listing, currentUser, onClose, onContact, onReport, isFav
             <div className="text-center text-white/40 text-sm py-2">Connectez-vous pour contacter le vendeur</div>
           )}
           {isOwn && (
-            <div className="text-center text-white/40 text-sm py-2 bg-white/5 rounded-xl">C'est votre annonce</div>
+            <ShippingGuide pieces={listing.puzzle_pieces} />
           )}
         </div>
     </motion.div>
