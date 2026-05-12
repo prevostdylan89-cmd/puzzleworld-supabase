@@ -371,13 +371,23 @@ function MessageModal({ listing, currentUser, onClose }) {
 
 // ─── Formulaire nouvelle annonce ───────────────────────────────────────────────
 
-function NewListingForm({ currentUser, onClose, onSuccess }) {
+function NewListingForm({ currentUser, onClose, onSuccess, editListing = null }) {
   const [form, setForm] = useState({
-    title: '', description: '', transaction_type: 'vente', price: '',
-    condition: 'bon', pieces_missing: 0, city: '', shipping_offered: false,
-    shipping_price: '', exchange_wants: '', puzzle_name: '', puzzle_brand: '', puzzle_pieces: ''
+    title: editListing?.title || '',
+    description: editListing?.description || '',
+    transaction_type: editListing?.transaction_type || 'vente',
+    price: editListing?.price || '',
+    condition: editListing?.condition || 'bon',
+    pieces_missing: editListing?.pieces_missing || 0,
+    city: editListing?.city || '',
+    shipping_offered: editListing?.shipping_offered || false,
+    shipping_price: editListing?.shipping_price || '',
+    exchange_wants: editListing?.exchange_wants || '',
+    puzzle_name: editListing?.puzzle_name || '',
+    puzzle_brand: editListing?.puzzle_brand || '',
+    puzzle_pieces: editListing?.puzzle_pieces || ''
   });
-  const [photos, setPhotos] = useState([]);
+  const [photos, setPhotos] = useState(editListing?.photos || []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef();
@@ -398,8 +408,7 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
     if (form.transaction_type === 'vente' && !form.price) return toast.error('Indiquez un prix');
     setSaving(true);
     try {
-      const { error } = await supabase.from('marketplace_listings').insert({
-        created_by: currentUser.email,
+      const payload = {
         title: form.title.trim(),
         description: form.description.trim() || null,
         transaction_type: form.transaction_type,
@@ -413,12 +422,20 @@ function NewListingForm({ currentUser, onClose, onSuccess }) {
         puzzle_name: form.puzzle_name.trim() || null,
         puzzle_brand: form.puzzle_brand.trim() || null,
         puzzle_pieces: form.puzzle_pieces ? parseInt(form.puzzle_pieces) : null,
-        photos: photos
-      });
-      if (error) throw error;
-      toast.success('Annonce publiée !');
+        photos: photos,
+        updated_at: new Date().toISOString()
+      };
+      if (editListing) {
+        const { error } = await supabase.from('marketplace_listings').update(payload).eq('id', editListing.id);
+        if (error) throw error;
+        toast.success('Annonce modifiée !');
+      } else {
+        const { error } = await supabase.from('marketplace_listings').insert({ ...payload, created_by: currentUser.email });
+        if (error) throw error;
+        toast.success('Annonce publiée !');
+      }
       onSuccess();
-    } catch { toast.error('Erreur lors de la publication'); }
+    } catch { toast.error('Erreur lors de la sauvegarde'); }
     setSaving(false);
   };
 
@@ -613,6 +630,7 @@ export default function Marketplace() {
   const [selectedListing, setSelectedListing] = useState(null);
   const [contactListing, setContactListing] = useState(null);
   const [showNewForm, setShowNewForm] = useState(false);
+  const [editingListing, setEditingListing] = useState(null);
   const [myConversations, setMyConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -729,14 +747,15 @@ export default function Marketplace() {
 
   const tabCls = (v) => `flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${activeView === v ? 'bg-orange-500/20 text-orange-400' : 'text-white/60 hover:text-white hover:bg-white/5'}`;
 
-  // Si le form est ouvert, afficher uniquement le form (page dans la page)
-  if (showNewForm && currentUser) {
+  // Si le form est ouvert (nouvelle annonce ou modification)
+  if ((showNewForm || editingListing) && currentUser) {
     return (
       <div className="max-w-6xl mx-auto p-4 lg:p-8">
         <NewListingForm
           currentUser={currentUser}
-          onClose={() => setShowNewForm(false)}
-          onSuccess={() => { setShowNewForm(false); loadListings(); }}
+          editListing={editingListing}
+          onClose={() => { setShowNewForm(false); setEditingListing(null); }}
+          onSuccess={() => { setShowNewForm(false); setEditingListing(null); loadListings(); }}
         />
       </div>
     );
@@ -872,6 +891,9 @@ export default function Marketplace() {
                 </div>
               </div>
               <div className="flex gap-2 flex-shrink-0">
+                <button onClick={() => setEditingListing(listing)} title="Modifier" className="w-9 h-9 flex items-center justify-center bg-blue-500/10 hover:bg-blue-500/20 rounded-lg text-blue-400 transition-colors">
+                  <Edit3 className="w-4 h-4" />
+                </button>
                 <button onClick={() => markSold(listing.id)} title="Marquer vendu" className="w-9 h-9 flex items-center justify-center bg-green-500/10 hover:bg-green-500/20 rounded-lg text-green-400 transition-colors">
                   <Check className="w-4 h-4" />
                 </button>

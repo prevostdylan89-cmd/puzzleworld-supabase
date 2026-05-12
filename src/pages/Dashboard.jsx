@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/supabaseClient';
 import { toast } from 'sonner';
-import { Loader2, Home, Grid3X3, Users, Calendar, User, Settings, Gamepad2, Eye, BookOpen, Menu, X, Bug, Trophy, Shield, Award, RotateCcw, CloudRain } from 'lucide-react';
+import { Loader2, Home, Grid3X3, Users, Calendar, User, Settings, Gamepad2, Eye, BookOpen, Menu, X, Bug, Trophy, Shield, Award, RotateCcw, CloudRain, ShoppingBag } from 'lucide-react';
 
 // Import sections
 import DashboardHome from '@/components/dashboard/sections/DashboardHome';
@@ -21,6 +21,7 @@ import DashboardRestore from '@/components/dashboard/sections/DashboardRestore';
 import DashboardBadges from '@/components/dashboard/sections/DashboardBadges';
 import DashboardSync from '@/components/dashboard/sections/DashboardSync';
 import DashboardRainforest from '@/components/dashboard/sections/DashboardRainforest';
+import DashboardMarketplace from '@/components/dashboard/sections/DashboardMarketplace';
 
 const SECTIONS = [
   { id: 'home', label: 'Accueil', icon: Home, component: DashboardHome },
@@ -39,6 +40,7 @@ const SECTIONS = [
   { id: 'badges', label: 'Badges', icon: Award, component: DashboardBadges },
   { id: 'sync', label: 'Synchronisation', icon: Settings, component: DashboardSync },
   { id: 'rainforest', label: 'Rainforest API', icon: CloudRain, component: DashboardRainforest },
+  { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, component: DashboardMarketplace },
   { id: 'settings', label: 'Paramètres', icon: Settings, component: DashboardSettings },
 ];
 
