@@ -23,7 +23,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { supabase, base44 } from '@/api/supabaseClient';
 import { useAuth } from '@/lib/AuthContext';
@@ -653,49 +652,38 @@ const authUser = await base44.auth.me().catch(() => null);
 
       {/* Content Tabs */}
       <div className="px-4 lg:px-8 mt-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-white/5 border border-white/10 w-full overflow-x-auto flex-nowrap">
-            <TabsTrigger value="collection" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
+        <div>
+          <div className="overflow-x-auto scrollbar-hide w-full">
+          <div className="flex gap-1 p-1 bg-white/5 border border-white/10 rounded-lg min-w-max">
+            <button onClick={() => setActiveTab('collection')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${activeTab === 'collection' ? 'bg-orange-500 text-white' : 'text-white/60 hover:text-white'}`}>
               <Puzzle className="w-4 h-4 shrink-0" />
-              <span className="ml-1.5 hidden sm:inline">{t('myCollectionTab')}</span>
-              <span className="ml-1.5 sm:hidden">{t('collection')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="wishlist" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
+              <span>{t('collection')}</span>
+            </button>
+            <button onClick={() => setActiveTab('wishlist')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${activeTab === 'wishlist' ? 'bg-orange-500 text-white' : 'text-white/60 hover:text-white'}`}>
               <Heart className="w-4 h-4 shrink-0" />
-              <span className="ml-1.5">Wishlist</span>
-            </TabsTrigger>
-            <TabsTrigger value="personal" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
-              <span className="text-base shrink-0">🔒</span>
-              <span className="ml-1.5">{t('personalTab')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="speed" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
+              <span>Wishlist</span>
+            </button>
+            <button onClick={() => setActiveTab('personal')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${activeTab === 'personal' ? 'bg-orange-500 text-white' : 'text-white/60 hover:text-white'}`}>
+              <span>🔒</span>
+              <span>{t('personalTab')}</span>
+            </button>
+            <button onClick={() => setActiveTab('speed')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${activeTab === 'speed' ? 'bg-orange-500 text-white' : 'text-white/60 hover:text-white'}`}>
               <Zap className="w-4 h-4 shrink-0" />
-              <span className="ml-1.5 hidden sm:inline">Speed</span>
-              <span className="ml-1.5 sm:hidden">⚡</span>
-            </TabsTrigger>
-            <TabsTrigger value="amis" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
+              <span>Speed</span>
+            </button>
+            <button onClick={() => setActiveTab('amis')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${activeTab === 'amis' ? 'bg-orange-500 text-white' : 'text-white/60 hover:text-white'}`}>
               <Users className="w-4 h-4 shrink-0" />
-              <span className="ml-1.5 hidden sm:inline">Amis</span>
-              <span className="ml-1.5 sm:hidden">👥</span>
-            </TabsTrigger>
-          </TabsList>
+              <span>Amis</span>
+            </button>
+          </div>
+          </div>
 
-          <TabsContent value="collection" className="mt-6">
-            <CollectionSection user={user} />
-          </TabsContent>
-          <TabsContent value="wishlist" className="mt-6">
-            <WishlistSection user={user} />
-          </TabsContent>
-          <TabsContent value="personal" className="mt-6">
-            <PersonalPuzzleSection user={user} />
-          </TabsContent>
-          <TabsContent value="speed" className="mt-6">
-            <SpeedPuzzleSection user={user} />
-          </TabsContent>
-          <TabsContent value="amis" className="mt-6">
-            <FriendsTab user={user} t={t} />
-          </TabsContent>
-        </Tabs>
+          {activeTab === 'collection' && <div className="mt-6"><CollectionSection user={user} /></div>}
+          {activeTab === 'wishlist' && <div className="mt-6"><WishlistSection user={user} /></div>}
+          {activeTab === 'personal' && <div className="mt-6"><PersonalPuzzleSection user={user} /></div>}
+          {activeTab === 'speed' && <div className="mt-6"><SpeedPuzzleSection user={user} /></div>}
+          {activeTab === 'amis' && <div className="mt-6"><FriendsTab user={user} t={t} /></div>}
+        </div>
 
         {/* Import Collection Section */}
         <div className="mt-12">

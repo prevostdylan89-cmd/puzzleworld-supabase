@@ -3,11 +3,10 @@ import { motion } from 'framer-motion';
 import { X, Puzzle, Trophy, Users, Heart } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { supabase, base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { useLanguage } from '@/components/LanguageContext';
 
-// Fetch public stats for a user directly from Supabase
 async function fetchUserPublicStats(targetEmail) {
   const [
     { count: completed },
@@ -30,7 +29,6 @@ async function fetchUserPublicStats(targetEmail) {
   const totalPieces = (completedItems || []).reduce((sum, p) => sum + (p.puzzle_pieces || 0), 0);
   const profileRow = profile?.[0] || {};
 
-  // Level from scan count
   const { count: scansCount } = await supabase
     .from('puzzle_catalog')
     .select('id', { count: 'exact', head: true })
@@ -84,13 +82,13 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
   useEffect(() => {
     setLoading(true);
     setProfileData(null);
-    setIsFollowing(false);
+    setFriendStatus('none');
     loadData();
   }, [userEmail]);
 
   const loadData = async () => {
     try {
-      const loggedUser = await base44.auth.me().catch(() => null);
+      const { data: { user: loggedUser } } = await supabase.auth.getUser();
       setCurrentUser(loggedUser);
 
       if (!userEmail) { setLoading(false); return; }
@@ -118,13 +116,22 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
 
   const handleAddFriend = async (e) => {
     e.stopPropagation();
-    if (!currentUser) { toast.error(t('loginToFollow')); return; }
+    if (!currentUser) { toast.error('Connectez-vous pour ajouter un ami'); return; }
     if (friendStatus !== 'none') return;
     try {
-      await base44.entities.Friendship.create({ requester_email: currentUser.email, friend_email: userEmail, status: 'pending' });
+      const { error } = await supabase.from('friendships').insert({
+        created_by: currentUser.email,
+        requester_email: currentUser.email,
+        friend_email: userEmail,
+        addressee_email: userEmail,
+        status: 'pending',
+      });
+      if (error) throw error;
       setFriendStatus('pending');
-      toast.success('Demande d\'ami envoyée !');
-    } catch { toast.error('Erreur lors de l\'envoi de la demande'); }
+      toast.success("Demande d'ami envoyée !");
+    } catch {
+      toast.error("Erreur lors de l'envoi de la demande");
+    }
   };
 
   const displayName = profileData?.displayName || authorName || userEmail?.split('@')[0] || '??';
@@ -155,14 +162,28 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
             </Avatar>
             {!isOwnProfile && (
               <div className="flex items-center gap-2 mb-1">
-                <Button onClick={handleAddFriend} size="sm" disabled={friendStatus !== 'none'}
+                <Button
+                  onClick={handleAddFriend}
+                  size="sm"
+                  disabled={friendStatus !== 'none'}
                   className={`rounded-lg text-xs h-8 ${
-                    friendStatus === 'friend' ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : friendStatus === 'pending' ? 'bg-white/10 text-white/50'
-                    : friendStatus === 'received' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    : 'bg-orange-500 hover:bg-orange-600 text-white'}`}>
+                    friendStatus === 'friend'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : friendStatus === 'pending'
+                      ? 'bg-white/10 text-white/50 cursor-default'
+                      : friendStatus === 'received'
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      : 'bg-orange-500 hover:bg-orange-600 text-white'
+                  }`}
+                >
                   <Users className="w-3 h-3 mr-1" />
-                  {friendStatus === 'friend' ? '✅ Amis' : friendStatus === 'pending' ? 'Demande envoyée' : friendStatus === 'received' ? 'Demande reçue' : 'Ajouter en ami'}
+                  {friendStatus === 'friend'
+                    ? '✅ Amis'
+                    : friendStatus === 'pending'
+                    ? 'Demande envoyée'
+                    : friendStatus === 'received'
+                    ? 'Demande reçue'
+                    : 'Ajouter en ami'}
                 </Button>
               </div>
             )}
