@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, UserPlus, UserCheck, Puzzle, Bookmark, BookmarkCheck, ThumbsDown, Flame } from 'lucide-react';
+import { Heart, MessageCircle, Puzzle, Bookmark, BookmarkCheck, ThumbsDown, Flame } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,6 @@ export default function PostCard({ post, user, isFeatured = false }) {
   const [showComments, setShowComments] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const [isFollowing, setIsFollowing] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isPuzzleLiked, setIsPuzzleLiked] = useState(false);
   const [isPuzzleDisliked, setIsPuzzleDisliked] = useState(false);
@@ -60,7 +59,6 @@ export default function PostCard({ post, user, isFeatured = false }) {
   useEffect(() => {
     if (user) {
       checkIfLiked();
-      checkIfFollowing();
       checkFriendStatus();
       if (showPuzzleActions) {
         checkIfInWishlist();
@@ -72,16 +70,14 @@ export default function PostCard({ post, user, isFeatured = false }) {
 
   const checkFriendStatus = async () => {
     if (!user || isOwnPost) return;
-    const sentCheck = await base44.entities.Friendship.filter({ created_by: user.email,
-      friend_email: post.created_by
-    });
-    const receivedCheck = await base44.entities.Friendship.filter({ created_by: post.created_by,
-      friend_email: user.email
-    });
-    if (sentCheck.length > 0) {
-      setFriendStatus(sentCheck[0].status === 'accepted' ? 'friend' : 'pending');
-    } else if (receivedCheck.length > 0) {
-      setFriendStatus(receivedCheck[0].status === 'accepted' ? 'friend' : 'received');
+    const [{ data: sent }, { data: received }] = await Promise.all([
+      supabase.from('friendships').select('id, status').eq('created_by', user.email).eq('friend_email', post.created_by),
+      supabase.from('friendships').select('id, status').eq('created_by', post.created_by).eq('friend_email', user.email),
+    ]);
+    if (sent?.length > 0) {
+      setFriendStatus(sent[0].status === 'accepted' ? 'friend' : 'pending');
+    } else if (received?.length > 0) {
+      setFriendStatus(received[0].status === 'accepted' ? 'friend' : 'received');
     }
   };
 
@@ -92,14 +88,6 @@ export default function PostCard({ post, user, isFeatured = false }) {
       created_by: user.email
     });
     setIsLiked(likes.length > 0);
-  };
-
-  const checkIfFollowing = async () => {
-    if (!user || isOwnPost) return;
-    const follows = await base44.entities.Follow.filter({ created_by: user.email,
-      following: post.created_by
-    });
-    setIsFollowing(follows.length > 0);
   };
 
   const checkIfInWishlist = async () => {
@@ -252,39 +240,6 @@ export default function PostCard({ post, user, isFeatured = false }) {
     }
   };
 
-  const handleFollow = async () => {
-    if (!user) {
-      toast.error(t('loginToFollow'));
-      return;
-    }
-
-    // Optimistic update
-    const previousFollowing = isFollowing;
-    setIsFollowing(!isFollowing);
-    toast.success(isFollowing ? t('unfollowed') : t('followedUser'));
-
-    try {
-      if (previousFollowing) {
-        const follows = await base44.entities.Follow.filter({ created_by: user.email,
-          following: post.created_by
-        });
-        if (follows.length > 0) {
-          await base44.entities.Follow.delete(follows[0].id);
-        }
-      } else {
-        await base44.entities.Follow.create({
-          created_by: user.email,
-          following: post.created_by
-        });
-      }
-    } catch (error) {
-      // Revert on error
-      setIsFollowing(previousFollowing);
-      console.error('Error toggling follow:', error);
-      toast.error(t('followUpdateFailed'));
-    }
-  };
-
   const handleAddFriend = async () => {
     if (!user) {
       toast.error(t('loginToFollow'));
@@ -292,16 +247,18 @@ export default function PostCard({ post, user, isFeatured = false }) {
     }
     if (friendStatus !== 'none') return;
     try {
-      await base44.entities.Friendship.create({
+      const { error } = await supabase.from('friendships').insert({
+        created_by: user.email,
         requester_email: user.email,
         friend_email: post.created_by,
+        addressee_email: post.created_by,
         status: 'pending',
       });
+      if (error) throw error;
       setFriendStatus('pending');
-      toast.success('Demande d\'ami envoyée !');
-    } catch (error) {
-      console.error('Error sending friend request:', error);
-      toast.error('Erreur lors de l\'envoi de la demande');
+      toast.success("Demande d'ami envoyée !");
+    } catch {
+      toast.error("Erreur lors de l'envoi de la demande");
     }
   };
 
@@ -499,30 +456,23 @@ export default function PostCard({ post, user, isFeatured = false }) {
         </div>
         {user && !isOwnPost && (
           <div className="flex items-center gap-2">
-            <Button 
-              onClick={handleFollow}
+            <Button
+              onClick={handleAddFriend}
               size="sm"
-              variant={isFollowing ? "outline" : "default"}
+              disabled={friendStatus !== 'none'}
               className={`rounded-full text-xs h-7 px-3 ${
-                isFollowing 
-                  ? 'border-orange-500/30 text-orange-400 hover:bg-orange-500/10' 
+                friendStatus === 'friend'
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : friendStatus === 'pending'
+                  ? 'bg-white/10 text-white/50 cursor-default'
+                  : friendStatus === 'received'
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                   : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white'
               }`}
             >
-              {isFollowing ? (
-                <>
-                  <UserCheck className="w-3 h-3 mr-1" />
-                  {t('following2')}
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-3 h-3 mr-1" />
-                  {t('follow2')}
-                </>
-              )}
+              <Users className="w-3 h-3 mr-1" />
+              {friendStatus === 'friend' ? '✅ Amis' : friendStatus === 'pending' ? 'Demande envoyée' : friendStatus === 'received' ? 'Demande reçue' : 'Ajouter en ami'}
             </Button>
-            
-
           </div>
         )}
       </div>
