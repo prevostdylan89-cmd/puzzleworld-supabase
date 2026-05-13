@@ -654,26 +654,26 @@ const authUser = await base44.auth.me().catch(() => null);
       {/* Content Tabs */}
       <div className="px-4 lg:px-8 mt-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-white/5 border border-white/10 w-full">
-            <TabsTrigger value="collection" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1 text-xs sm:text-sm">
+          <TabsList className="bg-white/5 border border-white/10 w-full overflow-x-auto flex-nowrap">
+            <TabsTrigger value="collection" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
               <Puzzle className="w-4 h-4 shrink-0" />
               <span className="ml-1.5 hidden sm:inline">{t('myCollectionTab')}</span>
               <span className="ml-1.5 sm:hidden">{t('collection')}</span>
             </TabsTrigger>
-            <TabsTrigger value="wishlist" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1 text-xs sm:text-sm">
+            <TabsTrigger value="wishlist" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
               <Heart className="w-4 h-4 shrink-0" />
               <span className="ml-1.5">Wishlist</span>
             </TabsTrigger>
-            <TabsTrigger value="personal" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1 text-xs sm:text-sm">
+            <TabsTrigger value="personal" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
               <span className="text-base shrink-0">🔒</span>
               <span className="ml-1.5">{t('personalTab')}</span>
             </TabsTrigger>
-            <TabsTrigger value="speed" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1 text-xs sm:text-sm">
+            <TabsTrigger value="speed" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
               <Zap className="w-4 h-4 shrink-0" />
               <span className="ml-1.5 hidden sm:inline">Speed</span>
               <span className="ml-1.5 sm:hidden">⚡</span>
             </TabsTrigger>
-            <TabsTrigger value="amis" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1 text-xs sm:text-sm">
+            <TabsTrigger value="amis" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-shrink-0 text-xs sm:text-sm min-w-0">
               <Users className="w-4 h-4 shrink-0" />
               <span className="ml-1.5 hidden sm:inline">Amis</span>
               <span className="ml-1.5 sm:hidden">👥</span>

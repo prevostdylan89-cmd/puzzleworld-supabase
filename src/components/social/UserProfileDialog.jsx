@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Puzzle, Trophy, UserPlus, UserCheck, Users, Heart } from 'lucide-react';
+import { X, Puzzle, Trophy, Users, Heart } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { supabase, base44 } from '@/api/supabaseClient';
@@ -78,7 +78,6 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
   const { t } = useLanguage();
   const [profileData, setProfileData] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [isFollowing, setIsFollowing] = useState(false);
   const [friendStatus, setFriendStatus] = useState('none');
   const [loading, setLoading] = useState(true);
 
@@ -100,12 +99,10 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
       setProfileData(stats);
 
       if (loggedUser) {
-        const [followCheck, sentCheck, receivedCheck] = await Promise.all([
-          supabase.from('follows').select('id').eq('created_by', loggedUser.email).eq('following', userEmail),
+        const [sentCheck, receivedCheck] = await Promise.all([
           supabase.from('friendships').select('id, status').eq('created_by', loggedUser.email).eq('friend_email', userEmail),
           supabase.from('friendships').select('id, status').eq('created_by', userEmail).eq('friend_email', loggedUser.email),
         ]);
-        setIsFollowing((followCheck.data?.length || 0) > 0);
         if (sentCheck.data?.length > 0) {
           setFriendStatus(sentCheck.data[0].status === 'accepted' ? 'friend' : 'pending');
         } else if (receivedCheck.data?.length > 0) {
@@ -128,22 +125,6 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
       setFriendStatus('pending');
       toast.success('Demande d\'ami envoyée !');
     } catch { toast.error('Erreur lors de l\'envoi de la demande'); }
-  };
-
-  const handleFollow = async (e) => {
-    e.stopPropagation();
-    if (!currentUser) { toast.error(t('loginToFollow')); return; }
-    const prev = isFollowing;
-    setIsFollowing(!isFollowing);
-    toast.success(isFollowing ? t('unfollowed') : t('followedUser'));
-    try {
-      if (prev) {
-        const { data: follows } = await supabase.from('follows').select('id').eq('created_by', currentUser.email).eq('following', userEmail);
-        if (follows?.length > 0) await supabase.from('follows').delete().eq('id', follows[0].id);
-      } else {
-        await base44.entities.Follow.create({ created_by: currentUser.email, following: userEmail });
-      }
-    } catch { setIsFollowing(prev); toast.error(t('followUpdateFailed')); }
   };
 
   const displayName = profileData?.displayName || authorName || userEmail?.split('@')[0] || '??';
@@ -174,18 +155,14 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
             </Avatar>
             {!isOwnProfile && (
               <div className="flex items-center gap-2 mb-1">
-                <Button onClick={handleFollow} size="sm"
-                  className={`rounded-lg text-xs h-8 ${isFollowing ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}>
-                  {isFollowing ? <><UserCheck className="w-3 h-3 mr-1" />{t('following2')}</> : <><UserPlus className="w-3 h-3 mr-1" />{t('follow')}</>}
-                </Button>
                 <Button onClick={handleAddFriend} size="sm" disabled={friendStatus !== 'none'}
                   className={`rounded-lg text-xs h-8 ${
                     friendStatus === 'friend' ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                     : friendStatus === 'pending' ? 'bg-white/10 text-white/50'
                     : friendStatus === 'received' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                    : 'bg-orange-500 hover:bg-orange-600 text-white'}`}>
                   <Users className="w-3 h-3 mr-1" />
-                  {friendStatus === 'friend' ? 'Amis' : friendStatus === 'pending' ? 'En attente' : friendStatus === 'received' ? 'Reçue' : 'Ajouter'}
+                  {friendStatus === 'friend' ? '✅ Amis' : friendStatus === 'pending' ? 'Demande envoyée' : friendStatus === 'received' ? 'Demande reçue' : 'Ajouter en ami'}
                 </Button>
               </div>
             )}

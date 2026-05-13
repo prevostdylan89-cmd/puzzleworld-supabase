@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/supabaseClient';
+import { supabase, base44 } from '@/api/supabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Share2, Loader2, ImageOff } from 'lucide-react';
@@ -21,19 +21,28 @@ export default function ShareToFeedModal({ open, onClose, puzzle, photoUrl }) {
     if (!content.trim()) { toast.error('Le texte ne peut pas être vide'); return; }
     setPosting(true);
     try {
-      const user = await base44.auth.me();
-      await base44.entities.Post.create({
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error('Vous devez être connecté'); return; }
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('display_name')
+        .eq('created_by', user.email)
+        .single();
+
+      const authorName = profile?.display_name || user.email?.split('@')[0] || 'Utilisateur';
+
+      const { error } = await supabase.from('posts').insert({
+        created_by: user.email,
+        author_name: authorName,
         content: content.trim(),
-        image: photoUrl || '',
-        puzzle_name: puzzle.puzzle_name,
-        puzzle_brand: puzzle.puzzle_brand || '',
-        puzzle_pieces: puzzle.puzzle_pieces,
-        puzzle_reference: puzzle.puzzle_reference || '',
+        image_url: photoUrl || null,
         is_completion_post: true,
         likes_count: 0,
         comments_count: 0,
-        author_name: user.full_name || user.email,
       });
+
+      if (error) throw error;
       toast.success('🎉 Partagé sur le feed social !');
       onClose();
     } catch {
