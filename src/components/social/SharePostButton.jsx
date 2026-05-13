@@ -95,7 +95,7 @@ export default function SharePostButton({ post }) {
             onClick={() => setShowPanel(false)}
           />
 
-          <div className="absolute bottom-8 left-0 z-50 bg-[#1a1a2e] border border-white/10 rounded-2xl p-4 shadow-xl shadow-black/50 w-64">
+          <div className="absolute bottom-8 right-0 z-50 bg-[#1a1a2e] border border-white/10 rounded-2xl p-4 shadow-xl shadow-black/50 w-64">
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
               <p className="text-white text-sm font-semibold">Partager ce post</p>
