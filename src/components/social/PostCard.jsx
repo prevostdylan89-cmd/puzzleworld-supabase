@@ -18,6 +18,7 @@ import UserProfileDialog from './UserProfileDialog';
 import UserBadgeDisplay from './UserBadgeDisplay';
 import AuthorLevelBadge from './AuthorLevelBadge';
 import PostAuthorBadge from './PostAuthorBadge';
+import SharePostButton from './SharePostButton';
 
 export default function PostCard({ post, user, isFeatured = false }) {
   const { t } = useLanguage();
@@ -664,6 +665,9 @@ export default function PostCard({ post, user, isFeatured = false }) {
           <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
           <span className="text-sm">{commentsCount}</span>
         </button>
+        <div className="ml-auto">
+          <SharePostButton post={post} />
+        </div>
       </div>
 
       {/* Comments Section */}
