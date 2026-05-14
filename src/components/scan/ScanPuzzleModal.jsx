@@ -51,7 +51,9 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
   const [scanRating, setScanRating] = useState(0);
   const [userPhoto, setUserPhoto] = useState(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadingManualImage, setIsUploadingManualImage] = useState(false);
   const userPhotoInputRef = useRef(null);
+  const manualImageRef = useRef(null);
   const [speedHours, setSpeedHours] = useState('');
   const [speedMinutes, setSpeedMinutes] = useState('');
   const [speedSeconds, setSpeedSeconds] = useState('');
@@ -347,6 +349,56 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     } finally {
       setIsUploadingPhoto(false);
       e.target.value = '';
+    }
+  };
+
+  // Bridge Android pour l'image manuelle
+  useEffect(() => {
+    const handleAndroidManualImage = (e) => {
+      const { target, url } = e.detail || {};
+      if (target !== 'manual_puzzle') return;
+      if (!url) return;
+      setManualData(prev => ({ ...prev, image: url }));
+      setIsUploadingManualImage(false);
+      toast.success('Image ajoutée !');
+    };
+    window.addEventListener('android-image-selected', handleAndroidManualImage);
+    const prevReceive = window.receiveImageFromAndroid;
+    window.receiveImageFromAndroid = (target, url) => {
+      window.dispatchEvent(new CustomEvent('android-image-selected', { detail: { target, url } }));
+    };
+    return () => {
+      window.removeEventListener('android-image-selected', handleAndroidManualImage);
+      if (prevReceive) window.receiveImageFromAndroid = prevReceive;
+    };
+  }, []);
+
+  const handleManualImageClick = () => {
+    if (window.Android && window.Android.openImagePicker) {
+      setIsUploadingManualImage(true);
+      window.Android.openImagePicker('manual_puzzle');
+    } else {
+      setTimeout(() => manualImageRef.current?.click(), 50);
+    }
+  };
+
+  const handleManualImageFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setIsUploadingManualImage(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const fileName = `puzzles/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      setManualData(prev => ({ ...prev, image: data.publicUrl }));
+      toast.success('Image uploadée !');
+    } catch {
+      toast.error("Erreur upload image");
+    } finally {
+      setIsUploadingManualImage(false);
     }
   };
 
@@ -663,8 +715,22 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                             <Input type="number" placeholder="Ex: 1000" value={manualData.pieces} onChange={(e) => setManualData({...manualData, pieces: e.target.value})} className="bg-white/5 border-white/10 text-white" />
                           </div>
                           <div>
-                            <label className="text-white/70 text-sm mb-2 block">Image URL</label>
-                            <Input placeholder="https://..." value={manualData.image} onChange={(e) => setManualData({...manualData, image: e.target.value})} className="bg-white/5 border-white/10 text-white" />
+                            <label className="text-white/70 text-sm mb-2 block">Image</label>
+                            <div className="flex gap-2 items-center mb-2">
+                              {manualData.image && (
+                                <img src={manualData.image} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-white/10" />
+                              )}
+                              <button
+                                type="button"
+                                onClick={handleManualImageClick}
+                                disabled={isUploadingManualImage}
+                                className="flex-1 px-3 py-2 rounded-lg border border-dashed border-white/20 text-white/50 text-sm hover:border-orange-500/50 hover:text-orange-400 transition-colors disabled:opacity-50"
+                              >
+                                {isUploadingManualImage ? '⏳ Upload...' : '📁 Choisir une image'}
+                              </button>
+                              <input ref={manualImageRef} type="file" accept="image/*" className="hidden" onChange={handleManualImageFileChange} />
+                            </div>
+                            <Input placeholder="ou coller une URL..." value={manualData.image} onChange={(e) => setManualData({...manualData, image: e.target.value})} className="bg-white/5 border-white/10 text-white text-xs" />
                           </div>
                           <div>
                             <label className="text-white/70 text-sm mb-2 block">Reference / SKU</label>
