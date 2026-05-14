@@ -20,7 +20,6 @@ import DashboardRestore from '@/components/dashboard/sections/DashboardRestore';
 import DashboardBadges from '@/components/dashboard/sections/DashboardBadges';
 import DashboardRainforest from '@/components/dashboard/sections/DashboardRainforest';
 import DashboardMarketplace from '@/components/dashboard/sections/DashboardMarketplace';
-import DashboardFeaturedMarketplace from '@/components/dashboard/sections/DashboardFeaturedMarketplace';
 
 const SECTIONS = [
   { id: 'home', label: 'Accueil', icon: Home, component: DashboardHome },
@@ -38,7 +37,6 @@ const SECTIONS = [
   { id: 'badges', label: 'Badges', icon: Award, component: DashboardBadges },
   { id: 'rainforest', label: 'Rainforest API', icon: CloudRain, component: DashboardRainforest },
   { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, component: DashboardMarketplace },
-  { id: 'featuredmarketplace', label: 'Marketplace Accueil', icon: ShoppingBag, component: DashboardFeaturedMarketplace },
   { id: 'settings', label: 'Paramètres', icon: Settings, component: DashboardSettings },
 ];
 

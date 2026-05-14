@@ -270,26 +270,26 @@ export default function Home() {
         </section>
 
         {/* Mobile Dernières annonces Marketplace */}
-        {marketplaceListings.length > 0 && (
-          <section className="py-4">
-            <div className="flex items-center justify-between px-4 mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                  <ShoppingBag className="w-4 h-4 text-orange-400" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Marketplace</h2>
-                  <p className="text-white/40 text-[10px]">Dernières annonces</p>
-                </div>
+        <section className="py-4">
+          <div className="flex items-center justify-between px-4 mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                <ShoppingBag className="w-4 h-4 text-orange-400" />
               </div>
-              <Link to={createPageUrl('Marketplace')}>
-                <span className="text-orange-400 text-xs font-medium flex items-center gap-0.5">
-                  Voir tout <ChevronRight className="w-3.5 h-3.5" />
-                </span>
-              </Link>
+              <div>
+                <h2 className="text-base font-bold text-white">Marketplace</h2>
+                <p className="text-white/40 text-[10px]">Dernières annonces</p>
+              </div>
             </div>
-            <div className="flex gap-3 px-4 overflow-x-auto pb-2" style={{ scrollSnapType: 'x mandatory' }}>
-              {marketplaceListings.map((listing, index) => (
+            <Link to={createPageUrl('Marketplace')}>
+              <span className="text-orange-400 text-xs font-medium flex items-center gap-0.5">
+                Voir tout <ChevronRight className="w-3.5 h-3.5" />
+              </span>
+            </Link>
+          </div>
+          <div className="flex gap-3 px-4 overflow-x-auto pb-2" style={{ scrollSnapType: 'x mandatory' }}>
+            {(marketplaceListings.length > 0 ? marketplaceListings : Array.from({ length: 10 })).map((listing, index) => (
+              listing ? (
                 <Link
                   key={listing.id}
                   to={createPageUrl('Marketplace')}
@@ -315,10 +315,24 @@ export default function Home() {
                     </p>
                   </div>
                 </Link>
-              ))}
-            </div>
-          </section>
-        )}
+              ) : (
+                <Link
+                  key={`empty-${index}`}
+                  to={createPageUrl('Marketplace')}
+                  className="flex-shrink-0 w-32 rounded-xl overflow-hidden bg-white/5 border border-dashed border-white/10 active:scale-95 transition-transform"
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  <div className="aspect-square bg-white/5 flex items-center justify-center">
+                    <ShoppingBag className="w-8 h-8 text-white/10" />
+                  </div>
+                  <div className="p-2">
+                    <p className="text-white/25 text-[10px] text-center leading-tight">En attente d'une annonce</p>
+                  </div>
+                </Link>
+              )
+            ))}
+          </div>
+        </section>
         {/* Mobile Top Articles Blog */}
           <section className="py-4">
             <div className="flex items-center justify-between px-4 mb-3">
@@ -570,36 +584,33 @@ export default function Home() {
         </section>
 
 {/* Dernières annonces Marketplace */}
-        {marketplaceListings.length > 0 && (
-          <section className="px-8 py-10">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center">
-                  <ShoppingBag className="w-5 h-5 text-orange-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">Marketplace</h2>
-                  <p className="text-white/40 text-xs">Dernières annonces publiées</p>
-                </div>
+        <section className="px-8 py-10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center">
+                <ShoppingBag className="w-5 h-5 text-orange-400" />
               </div>
-              <Link to={createPageUrl('Marketplace')}>
-                <Button variant="ghost" size="sm" className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 gap-1">
-                  Voir tout <ChevronRight className="w-4 h-4" />
-                </Button>
-              </Link>
+              <div>
+                <h2 className="text-xl font-bold text-white">Marketplace</h2>
+                <p className="text-white/40 text-xs">Dernières annonces publiées</p>
+              </div>
             </div>
-            <motion.div
-              variants={container}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-              className="grid grid-cols-5 gap-4"
-            >
-              {marketplaceListings.slice(0, 10).map((listing) => (
-                <motion.div
-                  key={listing.id}
-                  variants={item}
-                >
+            <Link to={createPageUrl('Marketplace')}>
+              <Button variant="ghost" size="sm" className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 gap-1">
+                Voir tout <ChevronRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true }}
+            className="grid grid-cols-5 gap-4"
+          >
+            {(marketplaceListings.length > 0 ? marketplaceListings : Array.from({ length: 10 })).map((listing, index) => (
+              <motion.div key={listing?.id || `empty-${index}`} variants={item}>
+                {listing ? (
                   <Link
                     to={createPageUrl('Marketplace')}
                     className="group block rounded-2xl overflow-hidden bg-white/5 border border-white/[0.06] hover:border-orange-500/30 hover:scale-[1.02] transition-all duration-200"
@@ -625,11 +636,23 @@ export default function Home() {
                       {listing.city && <p className="text-white/30 text-xs mt-0.5">📍 {listing.city}</p>}
                     </div>
                   </Link>
-                </motion.div>
-              ))}
-            </motion.div>
-          </section>
-        )}
+                ) : (
+                  <Link
+                    to={createPageUrl('Marketplace')}
+                    className="group block rounded-2xl overflow-hidden bg-white/5 border border-dashed border-white/10 hover:border-orange-500/20 transition-all duration-200"
+                  >
+                    <div className="aspect-square bg-white/5 flex items-center justify-center">
+                      <ShoppingBag className="w-10 h-10 text-white/10" />
+                    </div>
+                    <div className="p-3 text-center">
+                      <p className="text-white/25 text-xs leading-tight">En attente d'une annonce</p>
+                    </div>
+                  </Link>
+                )}
+              </motion.div>
+            ))}
+          </motion.div>
+        </section>
 
         {/* Top Articles Blog */}
         <section className="px-8 py-10">

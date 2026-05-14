@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { Grid3X3, Search, Edit2, Trash2, Loader2, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -27,9 +27,9 @@ export default function DashboardMyCollection() {
   const [dynamicCategories, setDynamicCategories] = useState([]);
 
   useEffect(() => {
-    base44.entities.PuzzleCategory.list('order', 100).then(data => {
-      setDynamicCategories(data.sort((a, b) => (a.order || 0) - (b.order || 0)));
-    }).catch(() => {});
+    supabase.from('puzzle_categories').select('*').order('order', { ascending: true }).limit(100)
+      .then(({ data }) => { if (data) setDynamicCategories(data); })
+      .catch(() => {});
   }, []);
   const [sortBy, setSortBy] = useState('date');
   const [loading, setLoading] = useState(true);
@@ -45,8 +45,14 @@ export default function DashboardMyCollection() {
   const loadPuzzles = async () => {
     setLoading(true);
     try {
-      const allPuzzles = await base44.entities.PuzzleCatalog.list('-created_date', 500);
-      setPuzzles(allPuzzles);
+      const { data, error } = await supabase
+        .from('puzzle_catalog')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      setPuzzles(data || []);
     } catch (error) {
       console.error('Error loading puzzles:', error);
       toast.error('Erreur de chargement');
@@ -57,9 +63,9 @@ export default function DashboardMyCollection() {
 
   const handleDelete = async () => {
     if (!deletingPuzzle) return;
-
     try {
-      await base44.entities.PuzzleCatalog.delete(deletingPuzzle.id);
+      const { error } = await supabase.from('puzzle_catalog').delete().eq('id', deletingPuzzle.id);
+      if (error) throw error;
       toast.success('Puzzle supprimé');
       setDeletingPuzzle(null);
       loadPuzzles();
