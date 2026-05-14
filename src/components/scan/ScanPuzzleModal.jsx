@@ -561,7 +561,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setShowSpeedInput(false);
     setPuzzleConfirmed(false);
     setShowNotMyPuzzle(false);
-    setActiveTab(isMobile ? 'scanner' : 'manual');
+    setActiveTab('scanner');
     onClose();
   };
 
@@ -588,7 +588,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setShowSpeedInput(false);
     setCameraReady(false);
     setScanning(false);
-    setActiveTab(isMobile ? 'scanner' : 'manual');
+    setActiveTab('scanner');
   };
 
   const handleBarcodeSubmit = async () => {
@@ -656,7 +656,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
               {!puzzleData && !showSuccess && scanMessage?.type !== 'pending' && (
                 <>
-                  {isMobile ? (
+                  <>
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                       <TabsList className="bg-white/5 border border-white/10 w-full">
                         <TabsTrigger value="scanner" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white flex-1">
@@ -740,41 +740,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                         </div>
                       </TabsContent>
                     </Tabs>
-                  ) : (
-                    <div className="space-y-4 mt-4">
-                      <div className="text-center mb-6">
-                        <Barcode className="w-16 h-16 text-orange-500 mx-auto mb-3" />
-                        <h3 className="text-white text-lg font-semibold mb-1">Saisir le code-barres</h3>
-                        <p className="text-white/60 text-sm">Entrez les 13 ou 14 chiffres du code-barres</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4 mb-4 border border-white/10">
-                        <p className="text-white/70 text-xs text-center mb-3">Les chiffres se trouvent sous les barres :</p>
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="flex gap-[2px] justify-center">
-                            {[1,0,1,0,1,1,0,0,1,0,1,1,0,1,0,0,1,1,0,1,0,1,1,0,0,1,0,1,0,1,1,0].map((bar, i) => (
-                              <div key={i} className={`w-1 h-12 ${bar ? 'bg-black' : 'bg-white'}`} />
-                            ))}
-                          </div>
-                          <div className="relative">
-                            <div className="absolute -top-1 -left-1 right-[-4px] bottom-[-4px] border-2 border-red-500 rounded animate-pulse"></div>
-                            <div className="text-black font-mono text-sm tracking-wider bg-white px-2 py-1 rounded">5 412345 678901</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Input type="text" placeholder="13 ou 14 chiffres" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value.replace(/\D/g, '').slice(0, 14))} className="bg-white/5 border-white/10 text-white text-center tracking-wider text-lg" maxLength={14} disabled={loading} />
-                        <Button onClick={handleBarcodeSubmit} disabled={(barcodeInput.length !== 13 && barcodeInput.length !== 14) || loading} className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6">
-                          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'OK'}
-                        </Button>
-                      </div>
-                      {loading && (
-                        <div className="flex flex-col items-center justify-center py-8 space-y-4">
-                          <Loader2 className="w-12 h-12 text-orange-400 animate-spin" />
-                          <p className="text-white font-semibold">Recherche en cours...</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  </>
                 </>
               )}
 
