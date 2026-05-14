@@ -48,10 +48,12 @@ export default function DashboardMyCollection() {
       const { data, error } = await supabase
         .from('puzzle_catalog')
         .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
+        .neq('status', 'pending')
         .limit(500);
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
       setPuzzles(data || []);
     } catch (error) {
       console.error('Error loading puzzles:', error);
