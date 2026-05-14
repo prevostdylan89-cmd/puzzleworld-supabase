@@ -72,7 +72,8 @@ export default function ManualAddPuzzleModal({ open, onClose, onSubmit, prefillB
       setUploading(true);
       window.Android.openImagePicker('manual_puzzle');
     } else {
-      fileInputRef.current?.click();
+      // Délai pour éviter que le Dialog Radix intercepte le clic
+      setTimeout(() => fileInputRef.current?.click(), 50);
     }
   };
 
