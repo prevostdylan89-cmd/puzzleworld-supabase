@@ -106,6 +106,20 @@ export default function Home() {
 
   const loadMarketplaceListings = async () => {
     try {
+      // Priorité : sélection manuelle admin via featured_marketplace
+      const { data: featuredData } = await supabase
+        .from('featured_marketplace')
+        .select('*, marketplace_listings(*)')
+        .order('position', { ascending: true })
+        .limit(10);
+
+      if (featuredData && featuredData.length > 0) {
+        const listings = featuredData.map(f => f.marketplace_listings).filter(Boolean);
+        setMarketplaceListings(listings);
+        return;
+      }
+
+      // Fallback auto : 10 dernières annonces actives
       const { data } = await supabase.from('marketplace_listings')
         .select('*').eq('status', 'active')
         .order('created_at', { ascending: false }).limit(10);
@@ -255,6 +269,56 @@ export default function Home() {
           )}
         </section>
 
+        {/* Mobile Dernières annonces Marketplace */}
+        {marketplaceListings.length > 0 && (
+          <section className="py-4">
+            <div className="flex items-center justify-between px-4 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4 text-orange-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">Marketplace</h2>
+                  <p className="text-white/40 text-[10px]">Dernières annonces</p>
+                </div>
+              </div>
+              <Link to={createPageUrl('Marketplace')}>
+                <span className="text-orange-400 text-xs font-medium flex items-center gap-0.5">
+                  Voir tout <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </Link>
+            </div>
+            <div className="flex gap-3 px-4 overflow-x-auto pb-2" style={{ scrollSnapType: 'x mandatory' }}>
+              {marketplaceListings.map((listing, index) => (
+                <Link
+                  key={listing.id}
+                  to={createPageUrl('Marketplace')}
+                  className="flex-shrink-0 w-32 rounded-xl overflow-hidden bg-white/5 border border-white/10 active:scale-95 transition-transform"
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  <div className="aspect-square bg-white/5 relative">
+                    {listing.photos?.[0] || listing.puzzle_image ? (
+                      <img src={listing.photos?.[0] || listing.puzzle_image} alt={listing.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ShoppingBag className="w-8 h-8 text-white/20" />
+                      </div>
+                    )}
+                    <div className={`absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${listing.transaction_type === 'vente' ? 'bg-orange-500/90 text-white' : listing.transaction_type === 'echange' ? 'bg-blue-500/90 text-white' : 'bg-green-500/90 text-white'}`}>
+                      {listing.transaction_type === 'vente' ? 'Vente' : listing.transaction_type === 'echange' ? 'Échange' : 'Don'}
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    <p className="text-white text-[10px] font-semibold line-clamp-2 leading-tight mb-1">{listing.title}</p>
+                    <p className="text-orange-400 text-[10px] font-bold">
+                      {listing.transaction_type === 'vente' && listing.price != null ? `${Number(listing.price).toFixed(2)} €` : listing.transaction_type === 'don' ? 'Gratuit' : 'Échange'}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
         {/* Mobile Top Articles Blog */}
           <section className="py-4">
             <div className="flex items-center justify-between px-4 mb-3">
@@ -306,56 +370,6 @@ export default function Home() {
             </div>
         </section>
 
-        {/* Mobile Dernières annonces Marketplace */}
-        {marketplaceListings.length > 0 && (
-          <section className="py-4">
-            <div className="flex items-center justify-between px-4 mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                  <ShoppingBag className="w-4 h-4 text-orange-400" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Marketplace</h2>
-                  <p className="text-white/40 text-[10px]">Dernières annonces</p>
-                </div>
-              </div>
-              <Link to={createPageUrl('Marketplace')}>
-                <span className="text-orange-400 text-xs font-medium flex items-center gap-0.5">
-                  Voir tout <ChevronRight className="w-3.5 h-3.5" />
-                </span>
-              </Link>
-            </div>
-            <div className="flex gap-3 px-4 overflow-x-auto pb-2" style={{ scrollSnapType: 'x mandatory' }}>
-              {marketplaceListings.map((listing, index) => (
-                <Link
-                  key={listing.id}
-                  to={createPageUrl('Marketplace')}
-                  className="flex-shrink-0 w-32 rounded-xl overflow-hidden bg-white/5 border border-white/10 active:scale-95 transition-transform"
-                  style={{ scrollSnapAlign: 'start' }}
-                >
-                  <div className="aspect-square bg-white/5 relative">
-                    {listing.photos?.[0] || listing.puzzle_image ? (
-                      <img src={listing.photos?.[0] || listing.puzzle_image} alt={listing.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ShoppingBag className="w-8 h-8 text-white/20" />
-                      </div>
-                    )}
-                    <div className={`absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${listing.transaction_type === 'vente' ? 'bg-orange-500/90 text-white' : listing.transaction_type === 'echange' ? 'bg-blue-500/90 text-white' : 'bg-green-500/90 text-white'}`}>
-                      {listing.transaction_type === 'vente' ? 'Vente' : listing.transaction_type === 'echange' ? 'Échange' : 'Don'}
-                    </div>
-                  </div>
-                  <div className="p-2">
-                    <p className="text-white text-[10px] font-semibold line-clamp-2 leading-tight mb-1">{listing.title}</p>
-                    <p className="text-orange-400 text-[10px] font-bold">
-                      {listing.transaction_type === 'vente' && listing.price != null ? `${Number(listing.price).toFixed(2)} €` : listing.transaction_type === 'don' ? 'Gratuit' : 'Échange'}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* Mobile Événements - vertical cards */}
         <section className="py-4 px-4">
@@ -555,67 +569,7 @@ export default function Home() {
           )}
         </section>
 
-        {/* Top Articles Blog */}
-        <section className="px-8 py-10">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 text-blue-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">{t('latestArticles')}</h2>
-                  <p className="text-white/40 text-xs">{t('mustRead')}</p>
-                </div>
-              </div>
-              <Link to={createPageUrl('Blog')}>
-                <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-1">
-                  {t('seeAll')} <ChevronRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </div>
-            {featuredArticles.length === 0 ? (
-              <div className="text-center py-12 text-white/40">
-                <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>{t('noArticleYet')}</p>
-              </div>
-            ) : (
-            <motion.div
-              variants={container}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-              className="grid grid-cols-5 gap-4"
-            >
-              {featuredArticles.map((article) => (
-                <motion.div
-                  key={article.id}
-                  variants={item}
-                  onClick={() => setSelectedArticle(article)}
-                  className="group relative rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform duration-200 border border-white/[0.06] hover:border-blue-500/30"
-                >
-                  <div className="aspect-[4/3] overflow-hidden">
-                    {article.article_image ? (
-                      <img src={article.article_image} alt={article.article_title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                        <BookOpen className="w-10 h-10 text-white/20" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    {article.article_category && (
-                      <span className="text-blue-300 text-[10px] font-semibold uppercase tracking-wide">{article.article_category}</span>
-                    )}
-                    <p className="text-white font-bold text-sm line-clamp-2 mt-1">{article.article_title}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-            )}
-          </section>
-
-        {/* Dernières annonces Marketplace */}
+{/* Dernières annonces Marketplace */}
         {marketplaceListings.length > 0 && (
           <section className="px-8 py-10">
             <div className="flex items-center justify-between mb-6">
@@ -676,6 +630,67 @@ export default function Home() {
             </motion.div>
           </section>
         )}
+
+        {/* Top Articles Blog */}
+        <section className="px-8 py-10">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">{t('latestArticles')}</h2>
+                  <p className="text-white/40 text-xs">{t('mustRead')}</p>
+                </div>
+              </div>
+              <Link to={createPageUrl('Blog')}>
+                <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-1">
+                  {t('seeAll')} <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+            {featuredArticles.length === 0 ? (
+              <div className="text-center py-12 text-white/40">
+                <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>{t('noArticleYet')}</p>
+              </div>
+            ) : (
+            <motion.div
+              variants={container}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              className="grid grid-cols-5 gap-4"
+            >
+              {featuredArticles.map((article) => (
+                <motion.div
+                  key={article.id}
+                  variants={item}
+                  onClick={() => setSelectedArticle(article)}
+                  className="group relative rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform duration-200 border border-white/[0.06] hover:border-blue-500/30"
+                >
+                  <div className="aspect-[4/3] overflow-hidden">
+                    {article.article_image ? (
+                      <img src={article.article_image} alt={article.article_title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                        <BookOpen className="w-10 h-10 text-white/20" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    {article.article_category && (
+                      <span className="text-blue-300 text-[10px] font-semibold uppercase tracking-wide">{article.article_category}</span>
+                    )}
+                    <p className="text-white font-bold text-sm line-clamp-2 mt-1">{article.article_title}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+            )}
+          </section>
+
 
         {/* Événements */}
         <section className="px-8 py-10">

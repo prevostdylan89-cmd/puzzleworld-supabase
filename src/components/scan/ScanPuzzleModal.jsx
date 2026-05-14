@@ -383,24 +383,43 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         let catalogPuzzleId = pd.catalog_id || null;
 
         if (!catalogPuzzleId && pd.isPending) {
-          const { data: newEntry, error: catError } = await supabase
-            .from('puzzle_catalog')
-            .insert([{
-              title: pd.title || pd.name || '',
-              brand: pd.brand || '',
-              piece_count: pd.piece_count || pd.pieces || 0,
-              image_hd: pd.image_hd || pd.image || '',
-              ean: pd.ean || '',
-              asin: pd.asin || '',
-              category_tag: pd.category_tag || 'Autre',
-              amazon_price: pd.amazon_price || null,
-              amazon_rating: pd.amazon_rating || null,
-              status: 'pending',
-            }])
-            .select()
-            .single();
-          if (catError) console.error('Catalog insert error:', catError);
-          if (newEntry) catalogPuzzleId = newEntry.id;
+          // ✅ Anti-doublon : vérifier EAN et ASIN avant d'insérer dans puzzle_catalog
+          const ean = pd.ean || '';
+          const asin = pd.asin || '';
+          let existingCatalog = null;
+
+          if (ean) {
+            const { data } = await supabase.from('puzzle_catalog').select('id, status').eq('ean', ean).limit(1);
+            existingCatalog = data?.[0] || null;
+          }
+          if (!existingCatalog && asin) {
+            const { data } = await supabase.from('puzzle_catalog').select('id, status').eq('asin', asin).limit(1);
+            existingCatalog = data?.[0] || null;
+          }
+
+          if (existingCatalog) {
+            // Réutiliser l'entrée existante (même si pending)
+            catalogPuzzleId = existingCatalog.id;
+          } else {
+            const { data: newEntry, error: catError } = await supabase
+              .from('puzzle_catalog')
+              .insert([{
+                title: pd.title || pd.name || '',
+                brand: pd.brand || '',
+                piece_count: pd.piece_count || pd.pieces || 0,
+                image_hd: pd.image_hd || pd.image || '',
+                ean: pd.ean || '',
+                asin: pd.asin || '',
+                category_tag: pd.category_tag || 'Autre',
+                amazon_price: pd.amazon_price || null,
+                amazon_rating: pd.amazon_rating || null,
+                status: 'pending',
+              }])
+              .select()
+              .single();
+            if (catError) console.error('Catalog insert error:', catError);
+            if (newEntry) catalogPuzzleId = newEntry.id;
+          }
         }
 
         const refCode = pd.ean || pd.asin || pd.sku || barcode;

@@ -504,14 +504,16 @@ function UserPuzzleDetailModal({ open, onClose, puzzle, onUpdate, categories = [
             Ajouter un record ⚡
           </button>
 
-          {/* Partager sur le feed */}
-          <button
-            onClick={() => setShowShare(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-medium hover:bg-green-500/20 transition-colors"
-          >
-            <Share2 className="w-4 h-4" />
-            Partager sur le feed social 🎉
-          </button>
+          {/* Partager sur le feed - interdit pour les puzzles personnels */}
+          {puzzle?.status !== 'personal' && puzzle?.catalog_puzzle_id !== null && (
+            <button
+              onClick={() => setShowShare(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-medium hover:bg-green-500/20 transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+              Partager sur le feed social 🎉
+            </button>
+          )}
 
           {/* Catégorie personnelle */}
           {categories.length > 0 && (
@@ -698,13 +700,15 @@ function PuzzleCard({ puzzle, index, onUpdate, onOptimisticMove, isMultiSelect, 
                 <Zap className="w-4 h-4 mr-2" />
                 Ajouter un record ⚡
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => handleShareToFeed(e)}
-                className="text-green-400 cursor-pointer hover:bg-white/10"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Partager sur le feed
-              </DropdownMenuItem>
+              {puzzle?.status !== 'personal' && puzzle?.catalog_puzzle_id !== null && (
+                <DropdownMenuItem
+                  onClick={(e) => handleShareToFeed(e)}
+                  className="text-green-400 cursor-pointer hover:bg-white/10"
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Partager sur le feed
+                </DropdownMenuItem>
+              )}
               </>
             )}
             <DropdownMenuItem

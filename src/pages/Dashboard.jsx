@@ -15,17 +15,15 @@ import DashboardPendingPuzzles from '@/components/dashboard/sections/DashboardPe
 import DashboardPageVisibility from '@/components/dashboard/sections/DashboardPageVisibility';
 import DashboardBlog from '@/components/dashboard/sections/DashboardBlog';
 import DashboardBugReports from '@/components/dashboard/sections/DashboardBugReports';
-import DashboardTopPuzzles from '@/components/dashboard/sections/DashboardTopPuzzles';
 import DashboardModeration from '@/components/dashboard/sections/DashboardModeration';
 import DashboardRestore from '@/components/dashboard/sections/DashboardRestore';
 import DashboardBadges from '@/components/dashboard/sections/DashboardBadges';
-import DashboardSync from '@/components/dashboard/sections/DashboardSync';
 import DashboardRainforest from '@/components/dashboard/sections/DashboardRainforest';
 import DashboardMarketplace from '@/components/dashboard/sections/DashboardMarketplace';
+import DashboardFeaturedMarketplace from '@/components/dashboard/sections/DashboardFeaturedMarketplace';
 
 const SECTIONS = [
   { id: 'home', label: 'Accueil', icon: Home, component: DashboardHome },
-  { id: 'toppuzzles', label: 'Top Puzzles', icon: Trophy, component: DashboardTopPuzzles },
   { id: 'mycollection', label: 'Ma Collection', icon: Grid3X3, component: DashboardMyCollection },
   { id: 'pending', label: 'En attente', icon: Grid3X3, component: DashboardPendingPuzzles },
   { id: 'social', label: 'Social', icon: Users, component: DashboardSocial },
@@ -38,9 +36,9 @@ const SECTIONS = [
   { id: 'moderation', label: 'Modération IA', icon: Shield, component: DashboardModeration },
   { id: 'restore', label: 'Restauration', icon: RotateCcw, component: DashboardRestore },
   { id: 'badges', label: 'Badges', icon: Award, component: DashboardBadges },
-  { id: 'sync', label: 'Synchronisation', icon: Settings, component: DashboardSync },
   { id: 'rainforest', label: 'Rainforest API', icon: CloudRain, component: DashboardRainforest },
   { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, component: DashboardMarketplace },
+  { id: 'featuredmarketplace', label: 'Marketplace Accueil', icon: ShoppingBag, component: DashboardFeaturedMarketplace },
   { id: 'settings', label: 'Paramètres', icon: Settings, component: DashboardSettings },
 ];
 

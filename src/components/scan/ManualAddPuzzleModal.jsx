@@ -105,6 +105,25 @@ export default function ManualAddPuzzleModal({ open, onClose, onSubmit, prefillB
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
 
+      // ✅ Anti-doublon : vérifier si EAN déjà dans catalog (même en pending)
+      if (form.barcode) {
+        const { data: existing } = await supabase
+          .from('puzzle_catalog')
+          .select('id, status, title')
+          .eq('ean', form.barcode)
+          .limit(1);
+        if (existing && existing.length > 0) {
+          const e = existing[0];
+          if (e.status === 'pending') {
+            toast.error(`⏳ Ce puzzle (EAN: ${form.barcode}) est déjà en attente de validation : "${e.title}"`);
+          } else {
+            toast.error(`Ce puzzle existe déjà dans le catalogue : "${e.title}"`);
+          }
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const { data: catalogEntry, error: catalogError } = await supabase
         .from('puzzle_catalog')
         .insert({
