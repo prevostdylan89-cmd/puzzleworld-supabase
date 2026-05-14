@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,35 +6,89 @@ import { Input } from '@/components/ui/input';
 import { MobileSelect } from '@/components/ui/mobile-select';
 import { SelectItem } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
 const CATEGORIES = ['Nature', 'Urbain', 'Disney', 'Art', 'Animaux', 'Monochrome', 'Vintage', 'Autre'];
 
+const EMPTY_FORM = (barcode = '') => ({
+  title: '', brand: '', pieces: '', category: '', price: '', barcode, imageUrl: '',
+});
+
+async function uploadToSupabase(file) {
+  const ext = file.name.split('.').pop();
+  const fileName = `puzzles/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+  return data.publicUrl;
+}
+
 export default function ManualAddPuzzleModal({ open, onClose, onSubmit, prefillBarcode = '' }) {
-  const [form, setForm] = useState({
-    title: '',
-    brand: '',
-    pieces: '',
-    category: '',
-    price: '',
-    barcode: prefillBarcode,
-    imageUrl: '',
-  });
+  const [form, setForm] = useState(EMPTY_FORM(prefillBarcode));
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // ✅ Reset complet à chaque ouverture du modal
+  useEffect(() => {
+    if (open) {
+      setForm(EMPTY_FORM(prefillBarcode));
+      setImagePreview('');
+      setUploading(false);
+      setSubmitting(false);
+    }
+  }, [open, prefillBarcode]);
+
+  // ✅ Bridge Android : écoute les images envoyées par l'app native
+  useEffect(() => {
+    const handleAndroidImage = (e) => {
+      const { url } = e.detail || {};
+      if (!url) return;
+      setForm(prev => ({ ...prev, imageUrl: url }));
+      setImagePreview(url);
+      setUploading(false);
+      toast.success('Image ajoutée !');
+    };
+
+    window.addEventListener('android-image-selected', handleAndroidImage);
+
+    window.receiveImageFromAndroid = (target, url) => {
+      if (target === 'manual_puzzle') {
+        window.dispatchEvent(new CustomEvent('android-image-selected', { detail: { target, url } }));
+      }
+    };
+
+    return () => {
+      window.removeEventListener('android-image-selected', handleAndroidImage);
+    };
+  }, []);
 
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
-  const handleImageUpload = async (e) => {
+  const handleImageClick = () => {
+    if (window.Android && window.Android.openImagePicker) {
+      setUploading(true);
+      window.Android.openImagePicker('manual_puzzle');
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Sélectionnez une image'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image trop grande (max 5 Mo)'); return; }
     setUploading(true);
+    // ✅ Reset input pour permettre de re-sélectionner le même fichier
+    e.target.value = '';
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      update('imageUrl', file_url);
-      setImagePreview(file_url);
+      const url = await uploadToSupabase(file);
+      update('imageUrl', url);
+      setImagePreview(url);
+      toast.success('Image uploadée !');
     } catch {
       toast.error("Erreur lors de l'upload de l'image");
     } finally {
@@ -49,17 +103,25 @@ export default function ManualAddPuzzleModal({ open, onClose, onSubmit, prefillB
     }
     setSubmitting(true);
     try {
-      // Créer dans le catalogue avec status "pending"
-      const catalogEntry = await base44.entities.PuzzleCatalog.create({
-        title: form.title,
-        brand: form.brand || '',
-        piece_count: parseInt(form.pieces),
-        category_tag: form.category || 'Autre',
-        amazon_price: form.price ? parseFloat(form.price) : undefined,
-        ean: form.barcode || '',
-        image_hd: form.imageUrl || '',
-        status: 'pending',
-      });
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+      const { data: catalogEntry, error: catalogError } = await supabase
+        .from('puzzle_catalog')
+        .insert({
+          title: form.title,
+          brand: form.brand || '',
+          piece_count: parseInt(form.pieces),
+          category_tag: form.category || 'Autre',
+          amazon_price: form.price ? parseFloat(form.price) : null,
+          ean: form.barcode || '',
+          image_hd: form.imageUrl || '',
+          status: 'pending',
+          created_by: currentUser?.email || null,
+        })
+        .select()
+        .single();
+
+      if (catalogError) throw catalogError;
 
       const puzzleData = {
         catalog_id: catalogEntry.id,
@@ -85,7 +147,7 @@ export default function ManualAddPuzzleModal({ open, onClose, onSubmit, prefillB
   };
 
   const handleClose = () => {
-    setForm({ title: '', brand: '', pieces: '', category: '', price: '', barcode: prefillBarcode, imageUrl: '' });
+    setForm(EMPTY_FORM(prefillBarcode));
     setImagePreview('');
     onClose();
   };
@@ -103,11 +165,8 @@ export default function ManualAddPuzzleModal({ open, onClose, onSubmit, prefillB
           🕐 Ce puzzle sera soumis à validation avant d'apparaître dans le catalogue communautaire.
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
-        >
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+
           {/* Image */}
           <div>
             <label className="text-white/70 text-sm mb-2 block">Image</label>
@@ -120,12 +179,23 @@ export default function ManualAddPuzzleModal({ open, onClose, onSubmit, prefillB
                 )}
               </div>
               <div className="flex-1 space-y-2">
-                <label className="block">
-                  <div className="w-full text-center cursor-pointer px-3 py-2 rounded-lg border border-dashed border-white/20 text-white/50 text-sm hover:border-orange-500/50 hover:text-orange-400 transition-colors">
-                    {uploading ? '⏳ Upload...' : '📁 Choisir une image'}
-                  </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
-                </label>
+                {/* ✅ Bouton qui fonctionne sur Android ET web */}
+                <button
+                  type="button"
+                  onClick={handleImageClick}
+                  disabled={uploading}
+                  className="w-full text-center cursor-pointer px-3 py-2 rounded-lg border border-dashed border-white/20 text-white/50 text-sm hover:border-orange-500/50 hover:text-orange-400 transition-colors disabled:opacity-50"
+                >
+                  {uploading ? '⏳ Upload...' : '📁 Choisir une image'}
+                </button>
+                {/* ✅ Input caché — ref pour reset et re-sélection */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
                 <Input
                   placeholder="ou coller une URL..."
                   value={form.imageUrl}
@@ -220,11 +290,7 @@ export default function ManualAddPuzzleModal({ open, onClose, onSubmit, prefillB
 
           {/* Boutons */}
           <div className="flex gap-3 pt-2">
-            <Button
-              onClick={handleClose}
-              variant="ghost"
-              className="flex-1 text-white/50 hover:text-white hover:bg-white/5"
-            >
+            <Button onClick={handleClose} variant="ghost" className="flex-1 text-white/50 hover:text-white hover:bg-white/5">
               Annuler
             </Button>
             <Button
