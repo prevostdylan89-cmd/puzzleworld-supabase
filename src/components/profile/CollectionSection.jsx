@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/components/LanguageContext';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { Package, CheckCircle, Loader2, Puzzle, MoreVertical, Trash2, ArrowRight, ArrowUpDown, Camera, ImagePlus, X, Tag, Zap, Share2 } from 'lucide-react';
 import AddSpeedRecordInline from '@/components/profile/AddSpeedRecordInline';
 import ShareToFeedModal from '@/components/profile/ShareToFeedModal';
@@ -45,6 +45,15 @@ function useScrollSafeDropdown() {
   return { open, setOpen, handlePointerDown, handleClick };
 }
 
+async function uploadToSupabase(file) {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const fileName = `progress/${Date.now()}.${ext}`;
+  const { data, error } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+  if (error) throw error;
+  const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+  return publicUrl;
+}
+
 export default function CollectionSection({ user }) {
   const { t } = useLanguage();
   const [wishlistPuzzles, setWishlistPuzzles] = useState([]);
@@ -75,17 +84,22 @@ export default function CollectionSection({ user }) {
 
   const loadPuzzles = async () => {
     try {
-      const [wishlist, inbox, completed, cats] = await Promise.all([
-        base44.entities.UserPuzzle.filter({ created_by: user.email, status: 'wishlist' }),
-        base44.entities.UserPuzzle.filter({ created_by: user.email, status: 'inbox' }),
-        base44.entities.UserPuzzle.filter({ created_by: user.email, status: 'done' }),
-        base44.entities.UserCategory.filter({ created_by: user.email }),
+      const [
+        { data: wishlist  = [] },
+        { data: inbox     = [] },
+        { data: completed = [] },
+        { data: cats      = [] },
+      ] = await Promise.all([
+        supabase.from('user_puzzles').select('*').eq('created_by', user.email).eq('status', 'wishlist'),
+        supabase.from('user_puzzles').select('*').eq('created_by', user.email).eq('status', 'inbox'),
+        supabase.from('user_puzzles').select('*').eq('created_by', user.email).eq('status', 'done'),
+        supabase.from('user_categories').select('*').eq('created_by', user.email),
       ]);
 
-      setWishlistPuzzles(wishlist);
-      setInboxPuzzles(inbox);
-      setCompletedPuzzles(completed);
-      setCategories(cats);
+      setWishlistPuzzles(wishlist  || []);
+      setInboxPuzzles(inbox     || []);
+      setCompletedPuzzles(completed || []);
+      setCategories(cats      || []);
     } catch (error) {
       console.error('Error loading puzzles:', error);
     } finally {
@@ -149,7 +163,7 @@ export default function CollectionSection({ user }) {
     let deleted = 0;
     for (const id of selectedIds) {
       try {
-        await base44.entities.UserPuzzle.delete(id);
+        await supabase.from('user_puzzles').delete().eq('id', id);
         deleted++;
       } catch (e) {
         // Already deleted or not found, skip silently
@@ -163,7 +177,7 @@ export default function CollectionSection({ user }) {
 
   const handleMultiMove = async (newStatus) => {
     for (const id of selectedIds) {
-      await base44.entities.UserPuzzle.update(id, { status: newStatus });
+      await supabase.from('user_puzzles').update({ status: newStatus }).eq('id', id);
     }
     toast.success(`${selectedIds.length} puzzle(s) déplacé(s)`);
     setIsMultiSelect(false);
@@ -176,7 +190,7 @@ export default function CollectionSection({ user }) {
   };
 
   return (
-    <Tabs defaultValue="inbox" className="w-full" onValueChange={() => { setIsMultiSelect(false); setSelectedIds([]); }}>
+    <Tabs defaultValue="all" className="w-full" onValueChange={() => { setIsMultiSelect(false); setSelectedIds([]); }}>
       {/* Catégories personnelles */}
       <div className="mb-4">
         <div className="flex items-center gap-2 flex-wrap">
@@ -220,6 +234,10 @@ export default function CollectionSection({ user }) {
 
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <TabsList className="bg-white/5 border border-white/10">
+          <TabsTrigger value="all" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+            <Puzzle className="w-4 h-4 mr-2" />
+            Tout ({wishlistPuzzles.length + inboxPuzzles.length + completedPuzzles.length})
+          </TabsTrigger>
           <TabsTrigger value="inbox" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
             <Package className="w-4 h-4 mr-2" />
             {t('inBox2')} ({inboxPuzzles.length})
@@ -270,6 +288,29 @@ export default function CollectionSection({ user }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <TabsContent value="all">
+        {(wishlistPuzzles.length + inboxPuzzles.length + completedPuzzles.length) === 0 ? (
+          <div className="text-center py-12 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl">
+            <Puzzle className="w-12 h-12 text-white/20 mx-auto mb-4" />
+            <p className="text-white/50">Votre collection est vide</p>
+            <p className="text-white/30 text-sm mt-2">Scannez ou ajoutez des puzzles pour commencer</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {getFilteredAndSorted([...wishlistPuzzles, ...inboxPuzzles, ...completedPuzzles]).map((puzzle, index) => (
+              <PuzzleCard
+                key={puzzle.id} puzzle={puzzle} index={index}
+                onUpdate={loadPuzzles} onOptimisticMove={handleOptimisticMove}
+                isMultiSelect={isMultiSelect} isSelected={selectedIds.includes(puzzle.id)}
+                onToggleSelect={() => toggleSelect(puzzle.id)}
+                onEnterMultiSelect={() => { setIsMultiSelect(true); setSelectedIds([puzzle.id]); }}
+                categories={categories}
+              />
+            ))}
+          </div>
+        )}
+      </TabsContent>
 
       <TabsContent value="inbox">
         {inboxPuzzles.length === 0 ? (
@@ -372,14 +413,14 @@ function UserPuzzleDetailModal({ open, onClose, puzzle, onUpdate, categories = [
 
   const handleRatingChange = async (newRating) => {
     setLocalRating(newRating);
-    await base44.entities.UserPuzzle.update(puzzle.id, { rating: newRating || null });
+    await supabase.from('user_puzzles').update({ rating: newRating || null }).eq('id', puzzle.id);
     if (onUpdate) onUpdate();
   };
 
   const handleCategoryChange = async (catId) => {
     const newCatId = catId === localCategoryId ? null : catId;
     setLocalCategoryId(newCatId);
-    await base44.entities.UserPuzzle.update(puzzle.id, { user_category_id: newCatId });
+    await supabase.from('user_puzzles').update({ user_category_id: newCatId }).eq('id', puzzle.id);
     if (onUpdate) onUpdate();
   };
 
@@ -393,8 +434,8 @@ function UserPuzzleDetailModal({ open, onClose, puzzle, onUpdate, categories = [
     if (!file) return;
     setIsUploadingPhoto(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      await base44.entities.UserPuzzle.update(puzzle.id, { progress_photo: file_url });
+      const file_url = await uploadToSupabase(file);
+      await supabase.from('user_puzzles').update({ progress_photo: file_url }).eq('id', puzzle.id);
       setLocalPhoto(file_url);
       toast.success(t('photoAdded'));
       if (onUpdate) onUpdate();
@@ -409,7 +450,7 @@ function UserPuzzleDetailModal({ open, onClose, puzzle, onUpdate, categories = [
   const handleDeletePhoto = async () => {
     if (!confirm('Supprimer la photo personnelle et revenir à la photo originale ?')) return;
     try {
-      await base44.entities.UserPuzzle.update(puzzle.id, { progress_photo: null });
+      await supabase.from('user_puzzles').update({ progress_photo: null }).eq('id', puzzle.id);
       setLocalPhoto(null);
       toast.success('Photo supprimée');
       if (onUpdate) onUpdate();
@@ -576,8 +617,8 @@ function PuzzleCard({ puzzle, index, onUpdate, onOptimisticMove, isMultiSelect, 
     if (!file) return;
     setIsUploadingPhoto(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      await base44.entities.UserPuzzle.update(puzzle.id, { progress_photo: file_url });
+      const file_url = await uploadToSupabase(file);
+      await supabase.from('user_puzzles').update({ progress_photo: file_url }).eq('id', puzzle.id);
       toast.success(t('photoAdded'));
       if (onUpdate) onUpdate();
     } catch (err) {
@@ -593,10 +634,13 @@ function PuzzleCard({ puzzle, index, onUpdate, onOptimisticMove, isMultiSelect, 
     onOptimisticMove(puzzle.id, newStatus);
     setIsUpdating(true);
     try {
-      await base44.entities.UserPuzzle.update(puzzle.id, { status: newStatus });
+      await supabase.from('user_puzzles').update({ status: newStatus }).eq('id', puzzle.id);
       if (newStatus === 'done') {
-        const user = await base44.auth.me();
-        await base44.auth.updateMe({ xp: (user.xp || 0) + 100 });
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data: profile } = await supabase.from('user_profiles').select('xp').eq('created_by', authUser.email).maybeSingle();
+          await supabase.from('user_profiles').update({ xp: ((profile?.xp) || 0) + 100 }).eq('created_by', authUser.email);
+        }
         toast.success(t('xpGained'));
       } else if (newStatus === 'inbox') {
         toast.success(t('puzzleBoxed'));
@@ -632,7 +676,7 @@ function PuzzleCard({ puzzle, index, onUpdate, onOptimisticMove, isMultiSelect, 
     
     setIsUpdating(true);
     try {
-      await base44.entities.UserPuzzle.delete(puzzle.id);
+      await supabase.from('user_puzzles').delete().eq('id', puzzle.id);
       toast.success(t('removeSuccess'));
       
       if (onUpdate) onUpdate();
