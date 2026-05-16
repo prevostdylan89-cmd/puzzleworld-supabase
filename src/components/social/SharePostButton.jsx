@@ -7,6 +7,7 @@ const SITE_NAME = 'PuzzleWorld 🧩';
 export default function SharePostButton({ post }) {
   const [showPanel, setShowPanel] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [textCopied, setTextCopied] = useState(false);
 
   const postUrl = `${SITE_URL}/og?ogpost=${post.id}`;
   const authorName = post.author_name || post.created_by?.split('@')[0] || 'Un puzzleur';
@@ -119,20 +120,23 @@ export default function SharePostButton({ post }) {
 
             <div className="flex flex-col gap-2">
 
-              <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/20 border border-[#1877F2]/30 transition-colors"
+              <button
+                onClick={async () => {
+                  try { await navigator.clipboard.writeText(shareText); setTextCopied(true); setTimeout(() => setTextCopied(false), 3000); } catch {}
+                  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, '_blank');
+                }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/20 border border-[#1877F2]/30 transition-colors w-full text-left"
               >
                 <div className="w-7 h-7 rounded-full bg-[#1877F2] flex items-center justify-center flex-shrink-0">
                   <Facebook size={14} className="text-white" />
                 </div>
                 <div>
                   <p className="text-white text-xs font-medium">Facebook</p>
-                  <p className="text-white/40 text-[10px]">Partager sur ta page</p>
+                  <p className={`text-[10px] transition-colors ${textCopied ? 'text-green-400 font-medium' : 'text-white/40'}`}>
+                    {textCopied ? '✓ Texte copié ! Colle-le dans Facebook' : 'Texte copié automatiquement'}
+                  </p>
                 </div>
-              </a>
+              </button>
 
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`}
