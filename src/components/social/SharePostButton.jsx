@@ -8,7 +8,7 @@ export default function SharePostButton({ post }) {
   const [showPanel, setShowPanel] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const postUrl = `${SITE_URL}/social?post=${post.id}`;
+  const postUrl = `${SITE_URL}/og?ogpost=${post.id}`;
   const authorName = post.author_name || post.created_by?.split('@')[0] || 'Un puzzleur';
   const postContent = post.content
     ? post.content.slice(0, 120) + (post.content.length > 120 ? '...' : '')
