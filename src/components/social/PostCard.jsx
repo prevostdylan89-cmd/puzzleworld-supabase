@@ -615,9 +615,11 @@ export default function PostCard({ post, user, isFeatured = false }) {
           <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
           <span className="text-sm">{commentsCount}</span>
         </button>
-        <div className="ml-auto">
-          <SharePostButton post={post} />
-        </div>
+        {isOwnPost && (
+          <div className="ml-auto">
+            <SharePostButton post={post} />
+          </div>
+        )}
       </div>
 
       {/* Comments Section */}

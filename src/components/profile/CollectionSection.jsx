@@ -6,6 +6,7 @@ import { base44 } from '@/api/supabaseClient';
 import { Package, CheckCircle, Loader2, Puzzle, MoreVertical, Trash2, ArrowRight, ArrowUpDown, Camera, ImagePlus, X, Tag, Zap, Share2 } from 'lucide-react';
 import AddSpeedRecordInline from '@/components/profile/AddSpeedRecordInline';
 import ShareToFeedModal from '@/components/profile/ShareToFeedModal';
+import SharePuzzleButton from '@/components/social/SharePuzzleButton';
 import StarRating from '@/components/shared/StarRating';
 import UserCategoriesManager from '@/components/profile/UserCategoriesManager';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -515,6 +516,9 @@ function UserPuzzleDetailModal({ open, onClose, puzzle, onUpdate, categories = [
             </button>
           )}
 
+          {/* Partager sur les réseaux sociaux */}
+          <SharePuzzleButton puzzle={puzzle} variant="button" />
+
           {/* Catégorie personnelle */}
           {categories.length > 0 && (
             <div className="bg-white/5 rounded-lg p-4 space-y-2">
@@ -709,6 +713,9 @@ function PuzzleCard({ puzzle, index, onUpdate, onOptimisticMove, isMultiSelect, 
                   Partager sur le feed
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem asChild className="p-0">
+                <SharePuzzleButton puzzle={puzzle} variant="menu-item" />
+              </DropdownMenuItem>
               </>
             )}
             <DropdownMenuItem
