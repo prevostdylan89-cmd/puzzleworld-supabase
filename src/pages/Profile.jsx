@@ -379,6 +379,7 @@ export default function Profile() {
   const [showBugReport, setShowBugReport] = useState(false);
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   const [showLevelsModal, setShowLevelsModal] = useState(false);
+  const [showFriendsModal, setShowFriendsModal] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -633,16 +634,17 @@ export default function Profile() {
               </motion.button>
             ))}
             {/* Amis — 4ème cadre stat */}
-            <motion.div
+            <motion.button
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 text-center"
+              onClick={() => setShowFriendsModal(true)}
+              className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 text-center hover:border-orange-500/30 hover:bg-white/5 transition-all cursor-pointer"
             >
               <Users className="w-6 h-6 text-orange-400 mx-auto mb-2" />
               <div className="text-2xl font-bold text-white">{friendsCount}</div>
               <div className="text-sm text-white/50">Amis</div>
-            </motion.div>
+            </motion.button>
           </div>
 
           {/* Total Pièces */}
@@ -774,6 +776,48 @@ export default function Profile() {
       <BadgesModal open={showBadgesModal} onClose={() => setShowBadgesModal(false)} user={user} />
       <BugReportModal open={showBugReport} onClose={() => setShowBugReport(false)} />
       <LevelsProgressModal open={showLevelsModal} onClose={() => setShowLevelsModal(false)} currentScans={newScansCount} currentLevel={currentLevel} />
+
+      {/* Modal Amis */}
+      <AnimatePresence>
+        {showFriendsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+            onClick={() => setShowFriendsModal(false)}
+          >
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <motion.div
+              initial={{ y: 60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 60, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="relative w-full sm:max-w-lg bg-[#0a0a1a] border border-white/[0.08] rounded-t-3xl sm:rounded-2xl flex flex-col"
+              style={{ maxHeight: '90vh' }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-orange-400" />
+                  <h2 className="text-white font-semibold text-base">Amis</h2>
+                </div>
+                <button
+                  onClick={() => setShowFriendsModal(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+              {/* Content */}
+              <div className="overflow-y-auto flex-1 p-5">
+                <FriendsTab user={user} t={t} />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
