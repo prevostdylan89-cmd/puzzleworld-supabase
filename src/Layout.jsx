@@ -344,7 +344,7 @@ function LayoutContent({ children, currentPageName }) {
       </header>
 
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50">
+      <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50" style={{ paddingTop: 'var(--status-bar-height, 0px)' }}>
         <div className="relative flex items-center h-14 px-2">
 
           {/* Bouton gauche — zone cliquable explicite 48x48, isolée */}
@@ -596,7 +596,7 @@ function LayoutContent({ children, currentPageName }) {
       </nav>
 
       {/* Main Content */}
-      <main id="pull-scroll-container" className="min-h-screen lg:pb-6 overflow-y-auto" style={{ paddingTop: '3.5rem', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+      <main id="pull-scroll-container" className="min-h-screen lg:pb-6 overflow-y-auto" style={{ paddingTop: 'calc(3.5rem + var(--status-bar-height, 0px))', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
         <PullToRefresh>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
