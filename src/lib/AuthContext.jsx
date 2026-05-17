@@ -24,11 +24,11 @@ export const AuthProvider = ({ children }) => {
         setTimeout(() => reject(new Error('timeout')), 3000)
       );
       const { data: profiles } = await Promise.race([profilePromise, timeoutPromise]);
-      if (profiles && profiles.length > 0 && profiles[0].display_name) {
+      if (profiles && profiles.length > 0) {
         return {
           ...base,
-          full_name: profiles[0].display_name,
-          display_name: profiles[0].display_name,
+          full_name: profiles[0].display_name || base.full_name,
+          display_name: profiles[0].display_name || base.display_name,
           picture: profiles[0].profile_photo || base.picture,
           profile_photo: profiles[0].profile_photo || base.picture,
           friend_code: profiles[0].friend_code,
