@@ -344,48 +344,43 @@ function LayoutContent({ children, currentPageName }) {
       </header>
 
       {/* Mobile Header */}
-      {/* Bouton hamburger FIXE — complètement indépendant, rien au-dessus */}
-      <div className="lg:hidden" style={{ position: 'fixed', top: 4, left: 4, zIndex: 100 }}>
-        {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Marketplace', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
-          <button
-            onClick={() => setShowMobileMenu(true)}
-            style={{
-              width: 48, height: 48,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              touchAction: 'manipulation',
-              WebkitTapHighlightColor: 'transparent',
-              borderRadius: 12,
-              background: 'rgba(255,255,255,0.05)',
-              border: 'none', cursor: 'pointer',
-            }}
-          >
-            <Menu style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
-          </button>
-        ) : (
-          <button
-            onClick={() => navigate(-1)}
-            style={{
-              width: 48, height: 48,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              touchAction: 'manipulation',
-              WebkitTapHighlightColor: 'transparent',
-              borderRadius: 12,
-              background: 'rgba(255,255,255,0.05)',
-              border: 'none', cursor: 'pointer',
-            }}
-          >
-            <ArrowLeft style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
-          </button>
-        )}
-      </div>
-
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50">
         <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 56px', alignItems: 'center', height: 56, paddingLeft: 4, paddingRight: 4 }}>
 
-          {/* Colonne gauche — vide, le bouton est fixe au-dessus */}
-          <div />
+          {/* Colonne gauche — bouton hamburger */}
+          {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Marketplace', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
+            <button
+              onClick={() => setShowMobileMenu(true)}
+              style={{
+                width: 48, height: 48,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                borderRadius: 12,
+                background: 'rgba(255,255,255,0.05)',
+                border: 'none', cursor: 'pointer',
+              }}
+            >
+              <Menu style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate(-1)}
+              style={{
+                width: 48, height: 48,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                borderRadius: 12,
+                background: 'rgba(255,255,255,0.05)',
+                border: 'none', cursor: 'pointer',
+              }}
+            >
+              <ArrowLeft style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
+            </button>
+          )}
 
-          {/* Colonne centre — logo */}
+          {/* Colonne centre — logo strictement dans sa colonne */}
           <Link to={createPageUrl('Home')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden' }}>
             <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
               <img src="/logo.png" alt="PuzzleWorld" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
