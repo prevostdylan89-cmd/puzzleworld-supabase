@@ -347,20 +347,20 @@ function LayoutContent({ children, currentPageName }) {
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50">
         <div className="flex items-center justify-between px-4 h-14">
           {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Marketplace', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
-            <button 
+            <button
               onClick={() => setShowMobileMenu(true)}
-              className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center active:bg-white/15 transition-colors"
-              style={{ touchAction: 'manipulation' }}
+              className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center active:bg-white/15 transition-colors"
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '48px', minHeight: '48px' }}
             >
-              <Menu className="w-6 h-6 text-white" />
+              <Menu className="w-6 h-6 text-white pointer-events-none" />
             </button>
           ) : (
-            <button 
+            <button
               onClick={() => navigate(-1)}
-              className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center active:bg-white/15 transition-colors"
-              style={{ touchAction: 'manipulation' }}
+              className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center active:bg-white/15 transition-colors"
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '48px', minHeight: '48px' }}
             >
-              <ArrowLeft className="w-6 h-6 text-white" />
+              <ArrowLeft className="w-6 h-6 text-white pointer-events-none" />
             </button>
           )}
 

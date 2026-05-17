@@ -168,7 +168,27 @@ export const AuthProvider = ({ children }) => {
 
   const navigateToLogin = () => { window.location.href = '/login'; };
   const continueAsGuest = () => { localStorage.setItem('guest_mode', 'true'); setIsGuest(true); };
-  const exitGuestMode = () => { localStorage.removeItem('guest_mode'); setIsGuest(false); };
+
+  // FIX : exitGuestMode navigue TOUJOURS vers /login pour que l'utilisateur puisse se connecter
+  const exitGuestMode = () => {
+    localStorage.removeItem('guest_mode');
+    setIsGuest(false);
+    window.location.href = '/login';
+  };
+
+  // Envoie l'email de réinitialisation de mot de passe
+  const sendPasswordResetEmail = async (email) => {
+    const redirectTo = `${window.location.origin}/ResetPassword`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+  };
+
+  // Met à jour le mot de passe (utilisé sur la page ResetPassword après vérification du token)
+  const updatePassword = async (newPassword) => {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    return data;
+  };
 
   const checkAppState = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -199,6 +219,8 @@ export const AuthProvider = ({ children }) => {
       loginWithMagicLink,
       loginWithEmail,
       signUpWithEmail,
+      sendPasswordResetEmail,
+      updatePassword,
     }}>
       {children}
     </AuthContext.Provider>

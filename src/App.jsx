@@ -5,6 +5,7 @@ import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import LoginPage from '@/pages/Login';
+import ResetPasswordPage from '@/pages/ResetPassword';
 import Blog from './pages/Blog';
 import Tutorial from './pages/Tutorial';
 import { useEffect } from 'react';
@@ -54,6 +55,8 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
+      {/* Route de réinitialisation de mot de passe — accessible sans connexion (token Supabase dans l'URL) */}
+      <Route path="/ResetPassword" element={<ResetPasswordPage />} />
       <Route path="/" element={
         <ProtectedRoute>
           <LayoutWrapper currentPageName={mainPageKey}>

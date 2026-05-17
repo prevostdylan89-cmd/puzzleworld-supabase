@@ -63,6 +63,7 @@ import OnlinePuzzles from './pages/OnlinePuzzles';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Profile from './pages/Profile';
 import PuzzleDetail from './pages/PuzzleDetail';
+import ResetPassword from './pages/ResetPassword';
 import Social from './pages/Social';
 import Terms from './pages/Terms';
 import __Layout from './Layout.jsx';
@@ -85,6 +86,7 @@ export const PAGES = {
     "PrivacyPolicy": PrivacyPolicy,
     "Profile": Profile,
     "PuzzleDetail": PuzzleDetail,
+    "ResetPassword": ResetPassword,
     "Social": Social,
     "Terms": Terms,
 }

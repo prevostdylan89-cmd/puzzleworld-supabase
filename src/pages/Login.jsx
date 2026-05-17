@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
-import { Mail, Loader2 } from 'lucide-react';
+import { Mail, Loader2, ArrowLeft } from 'lucide-react';
 
 function GoogleIcon() {
   return (
@@ -19,13 +19,14 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
-  const { loginWithGoogle, loginWithEmail, signUpWithEmail, continueAsGuest } = useAuth();
+  const { loginWithGoogle, loginWithEmail, signUpWithEmail, continueAsGuest, sendPasswordResetEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState('login'); // 'login' | 'signup' | 'magic'
+  const [mode, setMode] = useState('login'); // 'login' | 'signup' | 'magic' | 'forgot'
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(null);
   const [magicSent, setMagicSent] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const handleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -69,9 +70,25 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) { setError("Entrez votre email d'abord"); return; }
+    setLoading('forgot');
+    setError(null);
+    try {
+      await sendPasswordResetEmail(email);
+      setResetSent(true);
+      toast.success('Email de réinitialisation envoyé 📧');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const isLoading = (key) => loading === key;
   const anyLoading = loading !== null;
 
+  // Confirmation lien magique envoyé
   if (magicSent) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
@@ -86,6 +103,77 @@ export default function LoginPage() {
             <p className="text-xs text-slate-400">Vérifiez aussi vos spams si vous ne le voyez pas.</p>
             <Button variant="ghost" className="text-purple-600" onClick={() => setMagicSent(false)}>
               ← Retour
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Confirmation reset envoyé
+  if (resetSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+        <Card className="w-full max-w-md shadow-xl text-center">
+          <CardContent className="pt-10 pb-8 space-y-4">
+            <div className="text-6xl mb-2">🔑</div>
+            <h2 className="text-xl font-bold text-purple-800">Email envoyé !</h2>
+            <p className="text-slate-600">
+              Un lien de réinitialisation a été envoyé à <strong>{email}</strong>.
+              <br />Cliquez dessus pour choisir un nouveau mot de passe.
+            </p>
+            <p className="text-xs text-slate-400">Le lien expire dans 1 heure. Vérifiez aussi vos spams.</p>
+            <Button variant="ghost" className="text-purple-600" onClick={() => { setResetSent(false); setMode('login'); }}>
+              ← Retour à la connexion
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Vue mot de passe oublié
+  if (mode === 'forgot') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center pb-2">
+            <div className="text-5xl mb-3">🔑</div>
+            <CardTitle className="text-2xl font-bold text-purple-800">Mot de passe oublié</CardTitle>
+            <p className="text-sm text-slate-500 mt-1">
+              Entrez votre email pour recevoir un lien de réinitialisation sécurisé.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input
+              type="email"
+              placeholder="Votre email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleForgotPassword()}
+              disabled={anyLoading}
+            />
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <Button
+              type="button"
+              className="w-full bg-purple-700 hover:bg-purple-800 h-11"
+              disabled={anyLoading || !email}
+              onClick={handleForgotPassword}
+            >
+              {isLoading('forgot') ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+              Envoyer le lien de réinitialisation
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full text-slate-500 text-sm flex items-center gap-2 justify-center"
+              disabled={anyLoading}
+              onClick={() => { setMode('login'); setError(null); }}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Retour à la connexion
             </Button>
           </CardContent>
         </Card>
@@ -160,6 +248,19 @@ export default function LoginPage() {
               onKeyDown={e => e.key === 'Enter' && handleSubmit(e)}
               disabled={anyLoading}
             />
+          )}
+
+          {/* Mot de passe oublié — visible uniquement en mode login */}
+          {mode === 'login' && (
+            <div className="flex justify-end -mt-1">
+              <button
+                type="button"
+                onClick={() => { setMode('forgot'); setError(null); }}
+                className="text-xs text-purple-500 hover:text-purple-700 hover:underline transition-colors"
+              >
+                Mot de passe oublié ?
+              </button>
+            </div>
           )}
 
           {mode === 'magic' && (
