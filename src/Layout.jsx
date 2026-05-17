@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,8 +43,7 @@ import FriendRequestNotification from '@/components/notifications/FriendRequestN
 import { useAuth } from '@/lib/AuthContext';
 
 function LayoutContent({ children, currentPageName }) {
-  const [user, setUser] = useState(null);
-  const { exitGuestMode } = useAuth();
+  const { exitGuestMode, user, isGuest } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
@@ -53,6 +52,7 @@ function LayoutContent({ children, currentPageName }) {
   const [showBugReport, setShowBugReport] = useState(false);
   const [pageSettings, setPageSettings] = useState([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const { exitGuestMode, user, isGuest } = useAuth();
 
   useEffect(() => {
     // Charger les page_settings depuis Supabase directement
@@ -122,36 +122,18 @@ function LayoutContent({ children, currentPageName }) {
     }
   };
 
-  useEffect(() => { loadUser(); }, []);
-
   useEffect(() => {
     if (!user) return;
-    // Initial fetch
-    base44.entities.DirectMessage.filter({ receiver_email: user.email, is_read: false })
-      .then(msgs => setUnreadMessagesCount(new Set(msgs.map(m => m.conversation_id)).size))
+    // Compter les messages non lus
+    supabase.from('messages').select('conversation_id').eq('receiver_email', user.email).eq('is_read', false)
+      .then(({ data }) => setUnreadMessagesCount(new Set((data || []).map(m => m.conversation_id)).size))
       .catch(() => {});
-    // Real-time subscription for updates
-    const unsub = base44.entities.DirectMessage.subscribe((event) => {
-      // Only re-fetch on create/update events to avoid unnecessary calls
-      if (event.type === 'create' || event.type === 'update') {
-        base44.entities.DirectMessage.filter({ receiver_email: user.email, is_read: false })
-          .then(msgs => setUnreadMessagesCount(new Set(msgs.map(m => m.conversation_id)).size))
-          .catch(() => {});
-      }
-    });
-    return () => unsub();
   }, [user]);
 
-  const loadUser = async () => {
-    try {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-    } catch (error) {
-      console.log('User not logged in');
-    }
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
   };
-
-  const handleLogout = async () => { await base44.auth.logout(); window.location.href = '/login'; };
 
   const userInitials = user?.full_name 
     ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
