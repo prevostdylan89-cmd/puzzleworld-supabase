@@ -371,6 +371,7 @@ export default function Profile() {
     totalPieces: 0
   });
   const [scannedCount, setScannedCount] = useState(0);
+  const [friendsCount, setFriendsCount] = useState(0);
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
@@ -391,6 +392,17 @@ export default function Profile() {
       .select('id', { count: 'exact', head: true })
       .eq('created_by', user.email)
       .then(({ count }) => setScannedCount(count || 0));
+  }, [user?.email]);
+
+  // Friends count
+  useEffect(() => {
+    if (!user?.email) return;
+    supabase
+      .from('friendships')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'accepted')
+      .or(`requester_email.eq.${user.email},addressee_email.eq.${user.email}`)
+      .then(({ count }) => setFriendsCount(count || 0));
   }, [user?.email]);
 
   // Realtime stats refresh
@@ -605,7 +617,7 @@ export default function Profile() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
             {statItems.map((stat, index) => (
               <motion.button
                 key={stat.label}
@@ -620,50 +632,43 @@ export default function Profile() {
                 <div className="text-sm text-white/50">{stat.label}</div>
               </motion.button>
             ))}
-          </div>
-
-          {/* Total Pièces + Amis côte à côte */}
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            {/* Total Pièces */}
+            {/* Amis — 4ème cadre stat */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 flex flex-col justify-between"
+              transition={{ delay: 0.3 }}
+              className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 text-center"
             >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg">🧩</span>
-                </div>
-                <p className="text-white/50 text-xs">{t('piecesAssembled')}</p>
-              </div>
-              <div>
-                <div className="flex items-baseline gap-1 flex-wrap">
-                  <span className="text-2xl font-bold text-white">{formatPieces(stats.totalPieces)}</span>
-                  {stats.totalPieces >= 1000 && (
-                    <span className="text-white/40 text-xs">{stats.totalPieces.toLocaleString()}</span>
-                  )}
-                </div>
-                <div className="text-orange-400 font-semibold text-xs mt-1">{stats.completed} puzzle{stats.completed > 1 ? 's' : ''} {t('puzzlesCompletedLabel')}</div>
-              </div>
-            </motion.div>
-
-            {/* Amis */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.38 }}
-              className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 flex flex-col overflow-hidden"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4 text-orange-400 shrink-0" />
-                <h2 className="text-white font-semibold text-sm">Amis</h2>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <FriendsTab user={user} t={t} />
-              </div>
+              <Users className="w-6 h-6 text-orange-400 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-white">{friendsCount}</div>
+              <div className="text-sm text-white/50">Amis</div>
             </motion.div>
           </div>
+
+          {/* Total Pièces */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="mt-4 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 flex items-center gap-4"
+          >
+            <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+              <span className="text-2xl">🧩</span>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold text-white">{formatPieces(stats.totalPieces)}</span>
+                {stats.totalPieces >= 1000 && (
+                  <span className="text-white/40 text-sm">{stats.totalPieces.toLocaleString()}</span>
+                )}
+              </div>
+              <p className="text-white/50 text-sm">{t('piecesAssembled')}</p>
+            </div>
+            <div className="text-right">
+              <div className="text-orange-400 font-semibold text-sm">{stats.completed} puzzle{stats.completed > 1 ? 's' : ''}</div>
+              <div className="text-white/30 text-xs">{t('puzzlesCompletedLabel')}</div>
+            </div>
+          </motion.div>
 
           {/* Level Progress */}
           <motion.button
