@@ -129,7 +129,6 @@ export default function PostCard({ post, user, isFeatured = false }) {
       const { error } = await supabase.from('friendships').insert({
         created_by: user.email,
         requester_email: user.email,
-        friend_email: post.created_by,
         addressee_email: post.created_by,
         status: 'pending',
       });

@@ -122,7 +122,6 @@ export default function UserProfileDialog({ userEmail, authorName, onClose }) {
       const { error } = await supabase.from('friendships').insert({
         created_by: currentUser.email,
         requester_email: currentUser.email,
-        friend_email: userEmail,
         addressee_email: userEmail,
         status: 'pending',
       });
