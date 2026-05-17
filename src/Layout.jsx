@@ -344,7 +344,9 @@ function LayoutContent({ children, currentPageName }) {
       </header>
 
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50">
+        {/* Bande safe-area au-dessus — ne touche pas aux boutons */}
+        <div style={{ height: 'env(safe-area-inset-top)', background: 'transparent' }} />
         <div className="relative flex items-center h-14 px-2">
 
           {/* Bouton gauche — zone cliquable explicite 48x48, isolée */}
