@@ -671,7 +671,9 @@ export default function Profile() {
               <h2 className="text-white font-semibold text-base">Amis</h2>
               <span className="ml-auto text-white/30 text-sm font-mono">{friendsCount} ami{friendsCount > 1 ? 's' : ''}</span>
             </div>
-            <FriendsTab user={user} t={t} />
+            <div className="max-h-96 overflow-y-auto pr-1">
+              <FriendsTab user={user} t={t} />
+            </div>
           </motion.div>
 
           {/* Level Progress */}
