@@ -345,36 +345,68 @@ function LayoutContent({ children, currentPageName }) {
 
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50">
-        <div className="flex items-center justify-between px-4 h-14">
-          {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Marketplace', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
-            <button
-              onClick={() => setShowMobileMenu(true)}
-              className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center active:bg-white/15 transition-colors"
-              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '48px', minHeight: '48px' }}
-            >
-              <Menu className="w-6 h-6 text-white pointer-events-none" />
-            </button>
-          ) : (
-            <button
-              onClick={() => navigate(-1)}
-              className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center active:bg-white/15 transition-colors"
-              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '48px', minHeight: '48px' }}
-            >
-              <ArrowLeft className="w-6 h-6 text-white pointer-events-none" />
-            </button>
-          )}
+        <div className="relative flex items-center h-14 px-2">
 
-          <Link to={createPageUrl('Home')} className="flex items-center gap-2">
-            <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-              <img src="/logo.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
-            </div>
-            <span className="font-bold text-base">PuzzleWorld</span>
-          </Link>
+          {/* Bouton gauche — zone cliquable explicite 48x48, isolée */}
+          <div className="flex-none z-10">
+            {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Marketplace', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
+              <button
+                onClick={() => setShowMobileMenu(true)}
+                style={{
+                  width: 48,
+                  height: 48,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  touchAction: 'manipulation',
+                  WebkitTapHighlightColor: 'transparent',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.05)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                <Menu style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate(-1)}
+                style={{
+                  width: 48,
+                  height: 48,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  touchAction: 'manipulation',
+                  WebkitTapHighlightColor: 'transparent',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.05)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                <ArrowLeft style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
+              </button>
+            )}
+          </div>
 
-          <div className="flex items-center gap-2">
+          {/* Logo centré en absolu pour ne pas empiéter sur les boutons */}
+          <div className="absolute left-0 right-0 flex justify-center items-center pointer-events-none">
+            <Link to={createPageUrl('Home')} className="flex items-center gap-2 pointer-events-auto">
+              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                <img src="/logo.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
+              </div>
+              <span className="font-bold text-base">PuzzleWorld</span>
+            </Link>
+          </div>
+
+          {/* Bouton droit */}
+          <div className="flex-none ml-auto z-10">
             {user ? (
               <Link to={createPageUrl('Profile')}>
-                <div className="w-11 h-11 flex items-center justify-center">
+                <div style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Avatar className="h-9 w-9 ring-2 ring-orange-500/20 cursor-pointer">
                     {user.profile_photo ? (
                       <img src={user.profile_photo} alt={user.full_name || user.email} className="w-full h-full object-cover" />
@@ -396,6 +428,7 @@ function LayoutContent({ children, currentPageName }) {
               </Button>
             )}
           </div>
+
         </div>
       </header>
 
