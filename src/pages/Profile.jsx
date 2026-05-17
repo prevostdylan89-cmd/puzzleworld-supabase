@@ -622,30 +622,48 @@ export default function Profile() {
             ))}
           </div>
 
-          {/* Total Pièces */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="mt-4 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 flex items-center gap-4"
-          >
-            <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
-              <span className="text-2xl">🧩</span>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-white">{formatPieces(stats.totalPieces)}</span>
-                {stats.totalPieces >= 1000 && (
-                  <span className="text-white/40 text-sm">{stats.totalPieces.toLocaleString()}</span>
-                )}
+          {/* Total Pièces + Amis côte à côte */}
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            {/* Total Pièces */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 flex flex-col justify-between"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                  <span className="text-lg">🧩</span>
+                </div>
+                <p className="text-white/50 text-xs">{t('piecesAssembled')}</p>
               </div>
-              <p className="text-white/50 text-sm">{t('piecesAssembled')}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-orange-400 font-semibold text-sm">{stats.completed} puzzle{stats.completed > 1 ? 's' : ''}</div>
-              <div className="text-white/30 text-xs">{t('puzzlesCompletedLabel')}</div>
-            </div>
-          </motion.div>
+              <div>
+                <div className="flex items-baseline gap-1 flex-wrap">
+                  <span className="text-2xl font-bold text-white">{formatPieces(stats.totalPieces)}</span>
+                  {stats.totalPieces >= 1000 && (
+                    <span className="text-white/40 text-xs">{stats.totalPieces.toLocaleString()}</span>
+                  )}
+                </div>
+                <div className="text-orange-400 font-semibold text-xs mt-1">{stats.completed} puzzle{stats.completed > 1 ? 's' : ''} {t('puzzlesCompletedLabel')}</div>
+              </div>
+            </motion.div>
+
+            {/* Amis */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.38 }}
+              className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 flex flex-col overflow-hidden"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-4 h-4 text-orange-400 shrink-0" />
+                <h2 className="text-white font-semibold text-sm">Amis</h2>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <FriendsTab user={user} t={t} />
+              </div>
+            </motion.div>
+          </div>
 
           {/* Level Progress */}
           <motion.button
@@ -702,10 +720,7 @@ export default function Profile() {
               <Zap className="w-4 h-4 shrink-0" />
               <span>Speed</span>
             </button>
-            <button onClick={() => setActiveTab('amis')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${activeTab === 'amis' ? 'bg-orange-500 text-white' : 'text-white/60 hover:text-white'}`}>
-              <Users className="w-4 h-4 shrink-0" />
-              <span>Amis</span>
-            </button>
+
           </div>
           </div>
 
@@ -713,7 +728,7 @@ export default function Profile() {
           {activeTab === 'wishlist' && <div className="mt-6"><WishlistSection user={user} /></div>}
           {activeTab === 'personal' && <div className="mt-6"><PersonalPuzzleSection user={user} /></div>}
           {activeTab === 'speed' && <div className="mt-6"><SpeedPuzzleSection user={user} /></div>}
-          {activeTab === 'amis' && <div className="mt-6"><FriendsTab user={user} t={t} /></div>}
+
         </div>
 
         {/* Import Collection Section */}
