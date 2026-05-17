@@ -93,10 +93,25 @@ export default function Friends() {
         f => f.status === 'pending' && f.requester_email === authUser.email
       );
 
-      setFriends(acceptedFriends);
+      // Enrichir les amis avec leur display_name depuis user_profiles
+      const enrichedFriends = await Promise.all(acceptedFriends.map(async (f) => {
+        const { data: p } = await supabase.from('user_profiles').select('display_name, profile_photo, friend_code').eq('created_by', f.email).maybeSingle();
+        return {
+          ...f,
+          name: p?.display_name || f.name || f.email?.split('@')[0] || '?',
+          profile_photo: p?.profile_photo || null,
+          friend_code: p?.friend_code || null,
+        };
+      }));
+
+      setFriends(enrichedFriends);
       setPendingRequests(pending);
       setSentRequests(sent);
-      setAllUsers((usersData || []).map(u => ({ ...u, email: u.created_by })).filter(u => u.email !== authUser.email));
+      setAllUsers((usersData || []).map(u => ({
+        ...u,
+        email: u.created_by,
+        full_name: u.display_name || u.created_by?.split('@')[0],
+      })).filter(u => u.email !== authUser.email));
 
       // Pre-select friend from URL
       const urlParams = new URLSearchParams(window.location.search);
@@ -206,9 +221,10 @@ export default function Friends() {
     sentRequests.some(r => r.addressee_email === email);
 
   const filteredUsers = searchQuery.trim().length < 2 ? [] : allUsers.filter(u =>
-    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.friend_code?.toLowerCase().includes(searchQuery.toLowerCase())
+    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.friend_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
@@ -268,12 +284,17 @@ export default function Friends() {
                 className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 ring-2 ring-orange-500/20">
-                    <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-                      {friend.name?.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                    {friend.profile_photo ? (
+                      <img src={friend.profile_photo} alt={friend.name} className="w-full h-full object-cover rounded-full" />
+                    ) : (
+                      <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+                        {friend.name?.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <div>
                    <p className="text-white font-medium">{friend.name}</p>
+                   {friend.friend_code && <p className="text-white/40 text-xs">@{friend.friend_code}</p>}
                   </div>
                 </div>
                 <div className="flex gap-2">
