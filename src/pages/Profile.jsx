@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { supabase, base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { useAuth } from '@/lib/AuthContext';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -76,60 +76,91 @@ function FriendsTab({ user, t }) {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [friendshipsData, usersData] = await Promise.all([
-        base44.entities.Friendship.filter({}),
-        base44.entities.UserProfile.filter({})
+      const [{ data: friendshipsData }, { data: usersData }] = await Promise.all([
+        supabase.from('friendships').select('*').or(`requester_email.eq.${user.email},addressee_email.eq.${user.email}`),
+        supabase.from('user_profiles').select('*').neq('created_by', user.email)
       ]);
-      const acceptedFriends = friendshipsData.filter(
-        f => f.status === 'accepted' && (f.requester_email === user.email || f.addressee_email === user.email)
-      ).map(f => ({
-        email: f.requester_email === user.email ? f.addressee_email : f.requester_email,
-        name: f.requester_email === user.email ? f.addressee_name : f.requester_name,
-        friendshipId: f.id
-      }));
-      const pending = friendshipsData.filter(f => f.status === 'pending' && f.addressee_email === user.email);
-      const sent = friendshipsData.filter(f => f.status === 'pending' && f.requester_email === user.email);
+      const acceptedFriends = await Promise.all(
+        (friendshipsData || []).filter(
+          f => f.status === 'accepted' && (f.requester_email === user.email || f.addressee_email === user.email)
+        ).map(async f => {
+          const friendEmail = f.requester_email === user.email ? f.addressee_email : f.requester_email;
+          const { data: p } = await supabase.from('user_profiles').select('display_name, profile_photo, friend_code').eq('created_by', friendEmail).maybeSingle();
+          return {
+            email: friendEmail,
+            name: p?.display_name || f.addressee_name || f.requester_name || friendEmail?.split('@')[0],
+            profile_photo: p?.profile_photo || null,
+            friend_code: p?.friend_code || null,
+            friendshipId: f.id
+          };
+        })
+      );
+      const pending = (friendshipsData || []).filter(f => f.status === 'pending' && f.addressee_email === user.email);
+      const sent = (friendshipsData || []).filter(f => f.status === 'pending' && f.requester_email === user.email);
       setFriends(acceptedFriends);
       setPendingRequests(pending);
       setSentRequests(sent);
-      setAllUsers(usersData.filter(u => u.email !== user.email));
-    } catch (e) {}
+      setAllUsers((usersData || []).map(u => ({
+        ...u,
+        email: u.created_by,
+        full_name: u.display_name || u.created_by?.split('@')[0],
+      })).filter(u => u.email !== user.email));
+    } catch (e) { console.error(e); }
     setIsLoading(false);
   };
 
   const loadMessages = async (friendEmail) => {
     if (!user) return;
     const conversationId = [user.email, friendEmail].sort().join('_');
-    const msgs = await base44.entities.DirectMessage.filter({ conversation_id: conversationId });
-    const unread = msgs.filter(m => !m.is_read && m.receiver_email === user.email);
-    for (const msg of unread) await base44.entities.DirectMessage.update(msg.id, { is_read: true });
-    setMessages(msgs.sort((a, b) => new Date(a.created_date) - new Date(b.created_date)));
+    const { data: msgs } = await supabase.from('messages').select('*').eq('conversation_id', conversationId).order('created_date', { ascending: true });
+    const unreadIds = (msgs || []).filter(m => !m.is_read && m.receiver_email === user.email).map(m => m.id);
+    if (unreadIds.length > 0) await supabase.from('messages').update({ is_read: true }).in('id', unreadIds);
+    setMessages(msgs || []);
   };
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedFriend || !user) return;
     const conversationId = [user.email, selectedFriend.email].sort().join('_');
-    await base44.entities.DirectMessage.create({
+    const { error } = await supabase.from('messages').insert({
       sender_email: user.email, sender_name: user.full_name || user.email,
       receiver_email: selectedFriend.email, receiver_name: selectedFriend.name,
-      message: newMessage.trim(), conversation_id: conversationId, is_read: false
+      message: newMessage.trim(), conversation_id: conversationId,
+      is_read: false, created_by: user.email,
     });
-    setNewMessage('');
-    loadMessages(selectedFriend.email);
+    if (!error) { setNewMessage(''); loadMessages(selectedFriend.email); }
   };
 
   const sendFriendRequest = async (targetUser) => {
-    await base44.entities.Friendship.create({
-      requester_email: user.email, requester_name: user.full_name || user.email,
-      friend_email: targetUser.email, addressee_email: targetUser.email,
-      addressee_name: targetUser.display_name || targetUser.full_name || targetUser.email, status: 'pending'
-    });
-    loadData();
+    try {
+      const { error } = await supabase.from('friendships').insert({
+        created_by: user.email,
+        requester_email: user.email,
+        requester_name: user.full_name || user.email,
+        addressee_email: targetUser.email,
+        addressee_name: targetUser.display_name || targetUser.full_name || targetUser.email,
+        status: 'pending'
+      });
+      if (error) throw error;
+      toast.success("Demande d'ami envoyée !");
+      loadData();
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors de l'envoi");
+    }
   };
 
-  const acceptRequest = async (id) => { await base44.entities.Friendship.update(id, { status: 'accepted' }); loadData(); };
-  const declineRequest = async (id) => { await base44.entities.Friendship.delete(id); loadData(); };
-  const removeFriend = async (id) => { await base44.entities.Friendship.delete(id); loadData(); };
+  const acceptRequest = async (id) => {
+    await supabase.from('friendships').update({ status: 'accepted' }).eq('id', id);
+    loadData();
+  };
+  const declineRequest = async (id) => {
+    await supabase.from('friendships').delete().eq('id', id);
+    loadData();
+  };
+  const removeFriend = async (id) => {
+    await supabase.from('friendships').delete().eq('id', id);
+    loadData();
+  };
   const isFriend = (email) => friends.some(f => f.email === email);
   const hasPendingRequest = (email) => pendingRequests.some(r => r.requester_email === email) || sentRequests.some(r => r.addressee_email === email);
   const filteredUsers = searchQuery.trim().length < 2 ? [] : allUsers.filter(u =>
@@ -403,8 +434,7 @@ export default function Profile() {
 
   const loadUserData = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-const authUser = await base44.auth.me().catch(() => null);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) { setIsLoading(false); return; }
 
       // Load profile data
