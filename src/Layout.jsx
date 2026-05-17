@@ -344,72 +344,57 @@ function LayoutContent({ children, currentPageName }) {
       </header>
 
       {/* Mobile Header */}
+      {/* Bouton hamburger FIXE — complètement indépendant, rien au-dessus */}
+      <div className="lg:hidden" style={{ position: 'fixed', top: 4, left: 4, zIndex: 100 }}>
+        {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Marketplace', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
+          <button
+            onClick={() => setShowMobileMenu(true)}
+            style={{
+              width: 48, height: 48,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)',
+              border: 'none', cursor: 'pointer',
+            }}
+          >
+            <Menu style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              width: 48, height: 48,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)',
+              border: 'none', cursor: 'pointer',
+            }}
+          >
+            <ArrowLeft style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
+          </button>
+        )}
+      </div>
+
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-[#000019]/95 backdrop-blur-xl border-b border-white/[0.06] z-50">
-        <div className="relative flex items-center h-14 px-2">
+        <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 56px', alignItems: 'center', height: 56, paddingLeft: 4, paddingRight: 4 }}>
 
-          {/* Bouton gauche — zone cliquable explicite 48x48, isolée */}
-          <div className="flex-none z-10">
-            {['Home', 'Social', 'Collection', 'Profile', 'Events', 'Marketplace', 'Messages', 'OnlinePuzzles', 'Dashboard'].includes(currentPageName) ? (
-              <button
-                onPointerDown={(e) => { e.preventDefault(); setShowMobileMenu(true); }}
-                onClick={() => setShowMobileMenu(true)}
-                style={{
-                  width: 48,
-                  height: 48,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  touchAction: 'manipulation',
-                  WebkitTapHighlightColor: 'transparent',
-                  borderRadius: 12,
-                  background: 'rgba(255,255,255,0.05)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  position: 'relative',
-                  zIndex: 20,
-                }}
-              >
-                <Menu style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
-              </button>
-            ) : (
-              <button
-                onPointerDown={(e) => { e.preventDefault(); navigate(-1); }}
-                onClick={() => navigate(-1)}
-                style={{
-                  width: 48,
-                  height: 48,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  touchAction: 'manipulation',
-                  WebkitTapHighlightColor: 'transparent',
-                  borderRadius: 12,
-                  background: 'rgba(255,255,255,0.05)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  position: 'relative',
-                  zIndex: 20,
-                }}
-              >
-                <ArrowLeft style={{ width: 24, height: 24, color: 'white', pointerEvents: 'none' }} />
-              </button>
-            )}
-          </div>
+          {/* Colonne gauche — vide, le bouton est fixe au-dessus */}
+          <div />
 
-          {/* Logo centré en absolu pour ne pas empiéter sur les boutons */}
-          <div className="absolute left-0 right-0 flex justify-center items-center pointer-events-none">
-            <Link to={createPageUrl('Home')} className="flex items-center gap-2 pointer-events-auto">
-              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                <img src="/logo.png" alt="PuzzleWorld" className="w-full h-full object-contain" />
-              </div>
-              <span className="font-bold text-base">PuzzleWorld</span>
-            </Link>
-          </div>
+          {/* Colonne centre — logo */}
+          <Link to={createPageUrl('Home')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+              <img src="/logo.png" alt="PuzzleWorld" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+            <span style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap' }}>PuzzleWorld</span>
+          </Link>
 
-          {/* Bouton droit */}
-          <div className="flex-none ml-auto z-10">
+          {/* Colonne droite — avatar ou bouton connexion */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             {user ? (
               <Link to={createPageUrl('Profile')}>
                 <div style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
