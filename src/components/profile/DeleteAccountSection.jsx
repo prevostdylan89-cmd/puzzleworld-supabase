@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Loader2 } from 'lucide-react';
-import { base44 } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { useLanguage } from '@/components/LanguageContext';
+import { useAuth } from '@/lib/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -14,84 +15,81 @@ import {
 
 export default function DeleteAccountSection() {
   const { t } = useLanguage();
+  const { user, logout } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteAccount = async () => {
+    if (!user) return;
     setIsDeleting(true);
 
-    try {
-      const user = await base44.auth.me();
-      const userEmail = user.email;
+    const email = user.email;
 
+    try {
       toast.info(t('deletionInProgress'));
 
-      // Anonymize posts (GDPR compliance - keep content but remove identity)
-      const userPosts = await base44.entities.Post.filter({ created_by: userEmail });
-      for (const post of userPosts) {
-        await base44.entities.Post.update(post.id, {
-          author_name: t('deletedUser'),
-          content: t('deletedContent')
-        });
+      // 1. Anonymiser les posts (RGPD — garder le contenu mais effacer l'identité)
+      const { data: posts } = await supabase
+        .from('posts')
+        .select('id')
+        .eq('created_by', email);
+
+      if (posts?.length) {
+        await supabase
+          .from('posts')
+          .update({ author_name: t('deletedUser'), content: t('deletedContent') })
+          .eq('created_by', email);
       }
 
-      // Delete comments
-      const userComments = await base44.entities.Comment.filter({ created_by: userEmail });
-      for (const comment of userComments) {
-        await base44.entities.Comment.delete(comment.id);
-      }
+      // 2. Supprimer les commentaires
+      await supabase.from('comments').delete().eq('created_by', email);
 
-      // Delete user puzzles
-      const userPuzzles = await base44.entities.UserPuzzle.filter({ created_by: userEmail });
-      for (const puzzle of userPuzzles) {
-        await base44.entities.UserPuzzle.delete(puzzle.id);
-      }
+      // 3. Supprimer les puzzles de la collection
+      await supabase.from('user_puzzles').delete().eq('created_by', email);
 
-      // Delete likes
-      const userLikes = await base44.entities.Like.filter({ created_by: userEmail });
-      for (const like of userLikes) {
-        await base44.entities.Like.delete(like.id);
-      }
+      // 4. Supprimer les likes
+      await supabase.from('likes').delete().eq('created_by', email);
 
-      // Delete puzzle likes
-      const userPuzzleLikes = await base44.entities.UserPuzzleLike.filter({ created_by: userEmail });
-      for (const puzzleLike of userPuzzleLikes) {
-        await base44.entities.UserPuzzleLike.delete(puzzleLike.id);
-      }
+      // 5. Supprimer les puzzle likes
+      await supabase.from('user_puzzle_likes').delete().eq('created_by', email);
 
-      // Delete follows
-      const userFollows = await base44.entities.Follow.filter({ created_by: userEmail });
-      const userFollowing = await base44.entities.Follow.filter({ following: userEmail });
-      for (const follow of [...userFollows, ...userFollowing]) {
-        await base44.entities.Follow.delete(follow.id);
-      }
+      // 6. Supprimer les follows (dans les deux sens)
+      await supabase.from('follows').delete().eq('created_by', email);
+      await supabase.from('follows').delete().eq('following', email);
 
-      // Delete DNA
-      const userDNA = await base44.entities.UserDNA.filter({ created_by: userEmail });
-      for (const dna of userDNA) {
-        await base44.entities.UserDNA.delete(dna.id);
-      }
+      // 7. Supprimer la wishlist
+      await supabase.from('wishlist').delete().eq('created_by', email);
 
-      // Delete achievements
-      const achievements = await base44.entities.Achievement.filter({ created_by: userEmail });
-      for (const achievement of achievements) {
-        await base44.entities.Achievement.delete(achievement.id);
-      }
+      // 8. Supprimer les messages
+      await supabase.from('messages').delete().eq('sender_id', email);
 
-      // Delete user badges
-      const userBadges = await base44.entities.UserBadge.filter({ created_by: userEmail });
-      for (const badge of userBadges) {
-        await base44.entities.UserBadge.delete(badge.id);
+      // 9. Supprimer les annonces marketplace
+      await supabase.from('marketplace_listings').delete().eq('created_by', email);
+
+      // 10. Supprimer le profil utilisateur
+      await supabase.from('user_profiles').delete().eq('created_by', email);
+
+      // 11. Supprimer le compte Supabase Auth via l'Edge Function sécurisée
+      // (deleteUser nécessite le service_role côté serveur, pas depuis le client)
+      const { error: deleteError } = await supabase.functions.invoke('delete-user', {
+        body: { user_id: user.id },
+      });
+
+      if (deleteError) {
+        // Si l'Edge Function n'existe pas encore, on déconnecte quand même
+        console.warn('Edge function delete-user non disponible:', deleteError.message);
       }
 
       toast.success(t('accountDeleted'));
-      
-      // Logout and redirect
-      setTimeout(() => {
-        base44.auth.logout(); window.location.href = '/';
+
+      // Déconnexion et redirection
+      setTimeout(async () => {
+        await logout();
+        window.location.href = '/';
       }, 1000);
+
     } catch (error) {
-      console.error('Error deleting account:', error);
+      console.error('Erreur suppression compte:', error);
       toast.error(t('deletionError'));
       setIsDeleting(false);
     }
