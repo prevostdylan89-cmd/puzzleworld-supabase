@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }) => {
           full_name: profiles[0].display_name,
           display_name: profiles[0].display_name,
           picture: profiles[0].profile_photo || base.picture,
+          profile_photo: profiles[0].profile_photo || base.picture,
           friend_code: profiles[0].friend_code,
         };
       }
