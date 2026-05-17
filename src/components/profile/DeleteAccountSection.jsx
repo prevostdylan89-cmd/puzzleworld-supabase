@@ -23,66 +23,16 @@ export default function DeleteAccountSection() {
     if (!user) return;
     setIsDeleting(true);
 
-    const email = user.email;
-
     try {
       toast.info(t('deletionInProgress'));
 
-      // 1. Anonymiser les posts (RGPD — garder le contenu mais effacer l'identité)
-      const { data: posts } = await supabase
-        .from('posts')
-        .select('id')
-        .eq('created_by', email);
+      // Appel à la fonction SQL qui supprime le compte + toutes les données
+      const { error } = await supabase.rpc('delete_my_account');
 
-      if (posts?.length) {
-        await supabase
-          .from('posts')
-          .update({ author_name: t('deletedUser'), content: t('deletedContent') })
-          .eq('created_by', email);
-      }
-
-      // 2. Supprimer les commentaires
-      await supabase.from('comments').delete().eq('created_by', email);
-
-      // 3. Supprimer les puzzles de la collection
-      await supabase.from('user_puzzles').delete().eq('created_by', email);
-
-      // 4. Supprimer les likes
-      await supabase.from('likes').delete().eq('created_by', email);
-
-      // 5. Supprimer les puzzle likes
-      await supabase.from('user_puzzle_likes').delete().eq('created_by', email);
-
-      // 6. Supprimer les follows (dans les deux sens)
-      await supabase.from('follows').delete().eq('created_by', email);
-      await supabase.from('follows').delete().eq('following', email);
-
-      // 7. Supprimer la wishlist
-      await supabase.from('wishlist').delete().eq('created_by', email);
-
-      // 8. Supprimer les messages
-      await supabase.from('messages').delete().eq('sender_id', email);
-
-      // 9. Supprimer les annonces marketplace
-      await supabase.from('marketplace_listings').delete().eq('created_by', email);
-
-      // 10. Supprimer le profil utilisateur
-      await supabase.from('user_profiles').delete().eq('created_by', email);
-
-      // 11. Supprimer le compte Supabase Auth via l'Edge Function sécurisée
-      // (deleteUser nécessite le service_role côté serveur, pas depuis le client)
-      const { error: deleteError } = await supabase.functions.invoke('delete-user', {
-        body: { user_id: user.id },
-      });
-
-      if (deleteError) {
-        // Si l'Edge Function n'existe pas encore, on déconnecte quand même
-        console.warn('Edge function delete-user non disponible:', deleteError.message);
-      }
+      if (error) throw error;
 
       toast.success(t('accountDeleted'));
 
-      // Déconnexion et redirection
       setTimeout(async () => {
         await logout();
         window.location.href = '/';
