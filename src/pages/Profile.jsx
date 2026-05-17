@@ -18,6 +18,7 @@ import {
   Send,
   ArrowLeft,
   ChevronRight,
+  ChevronDown,
   Search
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -379,6 +380,7 @@ export default function Profile() {
   const [showBugReport, setShowBugReport] = useState(false);
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   const [showLevelsModal, setShowLevelsModal] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -659,21 +661,52 @@ export default function Profile() {
             </div>
           </motion.div>
 
-          {/* Amis */}
+          {/* Amis — accordéon */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.38 }}
-            className="mt-4 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-5"
+            className="mt-4 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden"
           >
-            <div className="flex items-center gap-2 mb-4">
-              <Users className="w-5 h-5 text-orange-400" />
-              <h2 className="text-white font-semibold text-base">Amis</h2>
-              <span className="ml-auto text-white/30 text-sm font-mono">{friendsCount} ami{friendsCount > 1 ? 's' : ''}</span>
-            </div>
-            <div className="max-h-96 overflow-y-auto pr-1">
-              <FriendsTab user={user} t={t} />
-            </div>
+            {/* Header cliquable */}
+            <button
+              onClick={() => setFriendsOpen(o => !o)}
+              className="w-full flex items-center gap-3 p-5 hover:bg-white/[0.03] transition-colors text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-orange-400" />
+              </div>
+              <div className="flex-1">
+                <div className="text-white font-semibold text-base">Amis</div>
+                {!friendsOpen && (
+                  <div className="text-white/30 text-xs mt-0.5">Appuyer pour déplier</div>
+                )}
+              </div>
+              <span className="text-white/30 text-sm font-mono mr-2">{friendsCount} ami{friendsCount > 1 ? 's' : ''}</span>
+              <motion.div
+                animate={{ rotate: friendsOpen ? 180 : 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <ChevronDown className="w-5 h-5 text-white/40" />
+              </motion.div>
+            </button>
+
+            {/* Contenu dépliable */}
+            <AnimatePresence initial={false}>
+              {friendsOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-5 pb-5 max-h-96 overflow-y-auto">
+                    <FriendsTab user={user} t={t} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
 
           {/* Level Progress */}
