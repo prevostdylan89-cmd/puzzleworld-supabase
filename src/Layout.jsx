@@ -52,7 +52,6 @@ function LayoutContent({ children, currentPageName }) {
   const [showBugReport, setShowBugReport] = useState(false);
   const [pageSettings, setPageSettings] = useState([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
-  const { exitGuestMode, user, isGuest } = useAuth();
 
   useEffect(() => {
     // Charger les page_settings depuis Supabase directement
