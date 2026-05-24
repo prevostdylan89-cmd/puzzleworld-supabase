@@ -232,12 +232,13 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
       let brand = item.brand || '';
       let pieces = null;
-      let imageUrl = item.image?.link || item.thumbnail || '';
+      let imageUrl = item.image?.link || item.image || item.thumbnail || '';
       let title = item.title || item.name || '';
       let asin = item.asin || '';
+      const isOffAmazon = !!item.source; // résultat hors Amazon (upcitemdb, go-upc, etc.)
 
-      // ETAPE 5 : getProductByAsin pour données complètes
-      if (asin) {
+      // ETAPE 5 : getProductByAsin pour données complètes (seulement si ASIN disponible)
+      if (asin && !isOffAmazon) {
         try {
           const detail = await getProductByAsin(asin);
           console.log('Product detail:', detail);
@@ -293,6 +294,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
         amazon_rating: item.rating || null,
         link: asin ? `https://www.amazon.com/dp/${asin}` : '',
         isPending: true,
+        source: item.source || 'amazon', // 'amazon' | 'upcitemdb' | 'go-upc' | 'openfoodfacts'
       };
 
       setPuzzleData(puzzleInfo);
@@ -816,6 +818,12 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
                         <a href={puzzleData.link} target="_blank" rel="noopener noreferrer" className="text-orange-400 text-sm hover:text-orange-300 underline break-all">
                           Voir sur Amazon
                         </a>
+                      </div>
+                    )}
+                    {!puzzleData.link && puzzleData.source && puzzleData.source !== 'amazon' && (
+                      <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 flex items-center gap-2">
+                        <span className="text-blue-400 text-xs">ℹ️</span>
+                        <p className="text-blue-300 text-xs">Trouvé via base de données publique — vérifiez les informations avant de valider.</p>
                       </div>
                     )}
                   </motion.div>
