@@ -306,12 +306,24 @@ export async function searchAmazonByName(name, apiKey) {
   return null;
 }
 
+// ─── Helper : extrait URL image depuis format string ou objet ─────────────────
+export function extractImageUrl(img) {
+  if (!img) return '';
+  if (typeof img === 'string') return img;
+  if (typeof img === 'object') {
+    if (img.link && typeof img.link === 'string') return img.link;
+    if (img.url && typeof img.url === 'string') return img.url;
+    if (img.src && typeof img.src === 'string') return img.src;
+  }
+  return '';
+}
+
 // ─── Détail produit par ASIN ─────────────────────────────────────────────────
 export async function getProductByAsin(asin, apiKey, countryCode = 'fr') {
   const key = apiKey || await getScraperApiKey();
   if (!key) throw new Error('Clé ScraperAPI non configurée');
 
-  // fr + com + de en parallèle, on prend le premier qui répond
+  // fr + com + de en parallèle, on prend le premier qui répond avec image
   const tryCountry = async (cc) => {
     try {
       const url = `${SCRAPER_PRODUCT_BASE}?api_key=${key}&asin=${asin}&country_code=${cc}`;
@@ -322,7 +334,11 @@ export async function getProductByAsin(asin, apiKey, countryCode = 'fr') {
       if (!response.ok) return null;
       const data = await response.json();
       if (data?.name || data?.title) {
-        console.log(`getProductByAsin [${cc}]:`, data?.name || data?.title);
+        // Normaliser les champs image pour assurer la cohérence
+        const imgFromMain = extractImageUrl(data?.main_image);
+        const imgFromArr = extractImageUrl(data?.images?.[0]) || extractImageUrl(data?.images?.[1]);
+        data._resolvedImage = imgFromMain || imgFromArr || '';
+        console.log(`getProductByAsin [${cc}]:`, data?.name || data?.title, '| image:', data._resolvedImage ? '✓' : '✗');
         return data;
       }
       return null;
@@ -338,7 +354,9 @@ export async function getProductByAsin(asin, apiKey, countryCode = 'fr') {
     tryCountry('com'),
     tryCountry('de'),
   ]);
-  return results.find(r => r !== null) || null;
+
+  // Préférer un résultat qui a une image
+  return results.find(r => r !== null && r._resolvedImage) || results.find(r => r !== null) || null;
 }
 
 // ─── Crédits ScraperAPI ───────────────────────────────────────────────────────

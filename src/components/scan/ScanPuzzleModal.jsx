@@ -22,6 +22,19 @@ import StarRating from '@/components/shared/StarRating';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2 } from 'lucide-react';
 
+// ─── Helper : extrait une URL d'image depuis n'importe quel format ─────────────
+function extractImageUrl(img) {
+  if (!img) return '';
+  if (typeof img === 'string') return img;
+  if (typeof img === 'object') {
+    // Formats connus : {link}, {url}, {src}
+    if (img.link && typeof img.link === 'string') return img.link;
+    if (img.url && typeof img.url === 'string') return img.url;
+    if (img.src && typeof img.src === 'string') return img.src;
+  }
+  return '';
+}
+
 export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipCollectionAdd = false }) {
   const queryClient = useQueryClient();
   const { user, isGuest } = useAuth();
@@ -58,6 +71,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
   const [speedMinutes, setSpeedMinutes] = useState('');
   const [speedSeconds, setSpeedSeconds] = useState('');
   const [showSpeedInput, setShowSpeedInput] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
@@ -68,6 +82,11 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Réinitialise l'état d'erreur image à chaque nouveau puzzle scanné
+  useEffect(() => {
+    setImageError(false);
+  }, [puzzleData?.image]);
 
   useEffect(() => {
     return () => { stopScanner(); };
@@ -232,7 +251,8 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
 
       let brand = item.brand || '';
       let pieces = null;
-      let imageUrl = item.image?.link || item.image || item.thumbnail || '';
+      // Extraction robuste : gère les formats string, {link}, {url}, {src}
+      let imageUrl = extractImageUrl(item.image) || extractImageUrl(item.thumbnail) || extractImageUrl(item.main_image) || '';
       let title = item.title || item.name || '';
       let asin = item.asin || '';
       const isOffAmazon = !!item.source; // résultat hors Amazon (upcitemdb, go-upc, etc.)
@@ -246,11 +266,9 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
           if (detail?.title) title = detail.title;
           if (detail?.brand) brand = detail.brand;
 
-          if (detail?.main_image?.link) {
-            imageUrl = detail.main_image.link;
-          } else if (detail?.images?.[0]?.link) {
-            imageUrl = detail.images[0].link;
-          }
+          // Utilise l'image pré-résolue par getProductByAsin (gère string et objet)
+          const detailImage = detail?._resolvedImage || '';
+          if (detailImage) imageUrl = detailImage;
 
           if (!pieces && detail?.title) {
             const titleMatch = detail.title.match(/(\d[\d\s]*)\s*[Pp]i[èe]ces?/);
@@ -591,6 +609,7 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
     setCameraReady(false);
     setScanning(false);
     setActiveTab('scanner');
+    setImageError(false);
   };
 
   const handleBarcodeSubmit = async () => {
@@ -763,8 +782,14 @@ export default function ScanPuzzleModal({ open, onClose, onPuzzleAdded, skipColl
               {puzzleData && !showSuccess && !skipCollectionAdd && (
                 <div className="space-y-4">
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg overflow-hidden border border-white/10 bg-black/20">
-                    {puzzleData.image ? (
-                      <img src={puzzleData.image} alt={puzzleData.name} className="w-full h-48 object-cover" />
+                    {puzzleData.image && !imageError ? (
+                      <img
+                        src={puzzleData.image}
+                        alt={puzzleData.name}
+                        className="w-full h-48 object-cover"
+                        onError={() => setImageError(true)}
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
                       <div className="w-full h-48 flex items-center justify-center bg-white/5">
                         <ImageIcon className="w-12 h-12 text-white/30" />
